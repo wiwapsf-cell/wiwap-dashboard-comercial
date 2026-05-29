@@ -439,14 +439,33 @@ function normEstado(v) {
 function brToISO(s) {
   if (!s) return null;
   const str = String(s).trim();
-  // formato DD/MM/YYYY
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+  // já em ISO? Ex.: 2026-05-29
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+
+  // número serial do Excel/Google Sheets, caso o CSV venha assim
+  const serial = Number(str.replace(',', '.'));
+  if (!Number.isNaN(serial) && serial > 20000 && serial < 80000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    const dt = new Date(excelEpoch.getTime() + serial * 86400000);
+    const y = dt.getUTCFullYear();
+    const mo = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${mo}-${d}`;
+  }
+
+  // formatos BR aceitos:
+  // DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY, DD.MM.YYYY, com ou sem horário depois
+  const m = str.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})/);
   if (m) {
-    const [, d, mo, y] = m;
+    let [, d, mo, y] = m;
+    if (y.length === 2) {
+      const yy = Number(y);
+      y = String(yy >= 70 ? 1900 + yy : 2000 + yy);
+    }
     return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
   }
-  // já em ISO?
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) return str.slice(0, 10);
+
   return null;
 }
 
