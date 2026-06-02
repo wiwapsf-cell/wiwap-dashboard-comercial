@@ -369,9 +369,9 @@
       <div class="panel-header">
         <div>
           <div class="panel-title">⚡ Retomada via n8n</div>
-          <div class="panel-subtitle">Leads que receberam disparo automático de retomada — quantos voltaram e converteram</div>
+          <div class="panel-subtitle">Disparos do n8n no período selecionado — quantos voltaram e converteram</div>
         </div>
-        <span class="panel-tag">automação</span>
+        <span class="panel-tag">por dt. do disparo</span>
       </div>
       <div class="n8n-kpis" id="n8n-kpis"></div>
       <div id="c-n8n-timeline" class="chart chart-md" style="margin-top: 12px;"></div>
@@ -1193,8 +1193,29 @@ function renderEstadosTable() {
 // (binds de map-metric movidos para initDashboard)
 
 // ============ RETOMADA VIA N8N ============
+// Extrai data ISO do nome do disparo: "Disparo 02/06 - A" → "2026-06-02"
+// (assume o ano atual; se a data extraída ficou no futuro, usa ano anterior)
+function dataDoDisparo(campanha) {
+  if (!campanha) return null;
+  const m = String(campanha).match(/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return null;
+  const dia = m[1].padStart(2, '0');
+  const mes = m[2].padStart(2, '0');
+  const hoje = new Date(maxDate + 'T00:00:00');
+  let ano = hoje.getFullYear();
+  let iso = `${ano}-${mes}-${dia}`;
+  // Se a data fica no futuro em relação ao maxDate, é do ano anterior
+  if (iso > maxDate) iso = `${ano - 1}-${mes}-${dia}`;
+  return iso;
+}
+
 function renderN8n() {
-  const comN8n = flowRecords.filter(r => r.campanha_n8n && byCreated(r));
+  // Filtra disparos pela data EXTRAÍDA do nome (não pela criação do lead)
+  const comN8n = flowRecords.filter(r => {
+    if (!r.campanha_n8n) return false;
+    const dt = dataDoDisparo(r.campanha_n8n);
+    return dt && inPeriod(dt);
+  });
   const total = comN8n.length;
   const agendaram = comN8n.filter(r => r.dt_reuniao_agendada).length;
   const realizaram = comN8n.filter(r => r.ultima_interacao === 'Reunião').length;
@@ -1223,7 +1244,9 @@ function renderN8n() {
   const map = {};
   allKeys.forEach(k => { map[k] = { disparos: 0, conv: 0 }; });
   comN8n.forEach(r => {
-    const key = bucketKey(r.criado_em, gran);
+    const dtDisparo = dataDoDisparo(r.campanha_n8n);
+    if (!dtDisparo) return;
+    const key = bucketKey(dtDisparo, gran);
     if (!(key in map)) map[key] = { disparos: 0, conv: 0 };
     map[key].disparos++;
     if (r.etapa === 'Pagamento Recebido') map[key].conv++;
