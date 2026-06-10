@@ -612,9 +612,11 @@ const COL_MAP = {
   utm_source: ['UTM Source'],
   utm_medium: ['UTM Medium'],
   campanha_n8n: ['Campanha ativa n8n:'],
-  enviou_card: ['Enviou o card de geração de valor? (SDR)']
+  enviou_card: ['Enviou o card de geração de valor? (SDR)'],
+  dt_apresentacao: ['Data da Apresentação:', 'Data da Apresentação', 'Data da Apresentacao:'],
+  id_bitrix: ['ID Bitrix']
 };
-const DATE_FIELDS = ['criado_em', 'dt_msg_wpp_hunter', 'dt_reuniao_agendada', 'dt_interacao', 'dt_pagamento'];
+const DATE_FIELDS = ['criado_em', 'dt_msg_wpp_hunter', 'dt_reuniao_agendada', 'dt_apresentacao', 'dt_interacao', 'dt_pagamento'];
 
 let allRecords = [], flowRecords = [], outrosRecords = [];
 let RESOLVED_COLS = {};
@@ -705,7 +707,7 @@ function inPeriod(dateStr) {
   return dateStr >= start && dateStr <= end;
 }
 const byCreated = r => inPeriod(r.criado_em);
-const byScheduled = r => inPeriod(r.dt_reuniao_agendada);
+const byScheduled = r => inPeriod(r.dt_apresentacao);
 const byInteraction = r => inPeriod(r.dt_interacao);
 const byPayment = r => inPeriod(r.dt_pagamento);
 
@@ -965,7 +967,7 @@ function renderShowDia() {
   const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const map = dias.map(() => ({ ag: 0, real: 0 }));
   flowRecords.filter(byHunter).filter(byScheduled).forEach(r => {
-    const d = new Date(r.dt_reuniao_agendada + 'T00:00:00');
+    const d = new Date(r.dt_apresentacao + 'T00:00:00');
     const dia = d.getDay();
     map[dia].ag++;
     if (r.ultima_interacao === 'Reunião') map[dia].real++;
@@ -1103,9 +1105,9 @@ function renderPipeline() {
   }, true);
 }
 
-// "Leads recebidos" do hunter no período: dt_msg_wpp_hunter no período OU dt_reuniao_agendada no período
+// "Leads recebidos" do hunter no período: dt_msg_wpp_hunter no período OU dt_apresentacao no período
 function leadsRecebidosDoHunter(recs) {
-  return recs.filter(r => inPeriod(r.dt_msg_wpp_hunter) || inPeriod(r.dt_reuniao_agendada));
+  return recs.filter(r => inPeriod(r.dt_msg_wpp_hunter) || inPeriod(r.dt_apresentacao));
 }
 
 // NOVO: Taxa de conversão por hunter
@@ -1356,7 +1358,7 @@ function renderFunilMkt() {
   const criados = allRecords.filter(byCreated);
   const total = criados.length;
   const validos = criados.filter(r => r.etapa !== OUTROS_SEGMENTOS).length;
-  const agendaram = criados.filter(r => r.etapa !== OUTROS_SEGMENTOS && r.dt_reuniao_agendada).length;
+  const agendaram = criados.filter(r => r.etapa !== OUTROS_SEGMENTOS && r.dt_apresentacao).length;
   if (total === 0) { emptyChart(chart, 'Sem leads no período'); return; }
   const pcts = ['100%',
     total > 0 ? `${(validos/total*100).toFixed(1).replace('.',',')}%` : '—',
@@ -1390,11 +1392,11 @@ function renderNoShowTimeline() {
   if (!chart) return;
   const gran = determineGranularity();
   // Sem fins de semana na granularidade diária
-  const allKeys = allBucketsInRange(gran, 'dt_reuniao_agendada', gran === 'day');
+  const allKeys = allBucketsInRange(gran, 'dt_apresentacao', gran === 'day');
   const map = {};
   allKeys.forEach(k => { map[k] = { ag: 0, real: 0 }; });
   flowRecords.filter(byHunter).filter(byScheduled).forEach(r => {
-    const key = bucketKey(r.dt_reuniao_agendada, gran);
+    const key = bucketKey(r.dt_apresentacao, gran);
     if (map[key] === undefined) return; // fim de semana ignorado
     map[key].ag++;
     if (r.ultima_interacao === 'Reunião') map[key].real++;
@@ -1537,7 +1539,7 @@ function renderTempoAgendamento() {
   const chart = getChart('c-tempo-agendamento');
   if (!chart) return;
   const gran = determineGranularity();
-  const buckets = allBucketsInRange(gran, 'dt_reuniao_agendada', false);
+  const buckets = allBucketsInRange(gran, 'dt_apresentacao', false);
   const recs = flowRecords.filter(byHunter).filter(byScheduled).filter(r => r.criado_em);
   const tagEl = document.getElementById('tempoMedioTag');
   if (recs.length === 0 || buckets.length === 0) {
@@ -1545,7 +1547,7 @@ function renderTempoAgendamento() {
     emptyChart(chart, 'Sem agendamentos no período');
     return;
   }
-  const diffDias = r => Math.max(0, Math.round((new Date(r.dt_reuniao_agendada) - new Date(r.criado_em)) / 86400000));
+  const diffDias = r => Math.max(0, Math.round((new Date(r.dt_apresentacao) - new Date(r.criado_em)) / 86400000));
   // média geral
   const mediaGeral = recs.reduce((a, r) => a + diffDias(r), 0) / recs.length;
   if (tagEl) tagEl.textContent = `média ${mediaGeral.toFixed(1).replace('.',',')} dias`;
@@ -1553,7 +1555,7 @@ function renderTempoAgendamento() {
   const map = {};
   buckets.forEach(b => { map[b] = { soma: 0, n: 0 }; });
   recs.forEach(r => {
-    const key = bucketKey(r.dt_reuniao_agendada, gran);
+    const key = bucketKey(r.dt_apresentacao, gran);
     if (!map[key]) map[key] = { soma: 0, n: 0 };
     map[key].soma += diffDias(r);
     map[key].n++;
@@ -1642,7 +1644,7 @@ function renderN8n() {
     return dt && inPeriod(dt);
   });
   const total = comN8n.length;
-  const agendaram = comN8n.filter(r => r.dt_reuniao_agendada).length;
+  const agendaram = comN8n.filter(r => r.dt_apresentacao).length;
   const converteram = comN8n.filter(r => r.etapa === 'Pagamento Recebido').length;
   const receita = converteram * TICKET_MEDIO;
   const kpis = [
@@ -1698,7 +1700,7 @@ function renderFontesTable() {
     const f = simplifyFonte(r.fonte);
     if (!map[f]) map[f] = { total: 0, ag: 0, real: 0, pag: 0 };
     map[f].total++;
-    if (r.dt_reuniao_agendada) map[f].ag++;
+    if (r.dt_apresentacao) map[f].ag++;
     if (r.ultima_interacao === 'Reunião') map[f].real++;
     if (r.etapa === 'Pagamento Recebido') map[f].pag++;
   });
