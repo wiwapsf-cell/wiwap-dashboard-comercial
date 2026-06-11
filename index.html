@@ -787,7 +787,12 @@ function simplifyFonte(f) {
   if (!f) return 'Sem fonte';
   if (f.includes('Tráfego Pago Meta')) {
     const pb = f.match(/\[PB\d+\]/);
-    return pb ? `Meta ${pb[0].replace(/[\[\]]/g,'')}` : 'Meta Geral';
+    const pbLabel = pb ? pb[0].replace(/[\[\]]/g,'') : '';
+    const tipo = f.match(/(?:CBO|ABO)\s*[-–]\s*(.+?)\s*[-–]\s*\[/);
+    const tipoLabel = tipo ? tipo[1].trim() : '';
+    if (pbLabel && tipoLabel) return `Meta ${tipoLabel} - ${pbLabel}`;
+    if (pbLabel) return `Meta ${pbLabel}`;
+    return 'Meta Geral';
   }
   if (f.includes('Instagram - Linktree - Formulário')) return 'IG Linktree Forms';
   if (f.includes('Instagram - Linktree - WhatsApp')) return 'IG Linktree WPP';
