@@ -801,6 +801,12 @@ function simplifyFonte(f) {
 // ============ DATA DO DISPARO N8N ============
 function dataDoDisparo(campanha) {
   if (!campanha) return null;
+  const full = String(campanha).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (full) {
+    const dia = full[1].padStart(2, '0');
+    const mes = full[2].padStart(2, '0');
+    return `${full[3]}-${mes}-${dia}`;
+  }
   const m = String(campanha).match(/(\d{1,2})\/(\d{1,2})/);
   if (!m) return null;
   const dia = m[1].padStart(2, '0');
