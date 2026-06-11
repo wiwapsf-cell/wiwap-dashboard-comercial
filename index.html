@@ -1650,7 +1650,11 @@ function renderN8n() {
     return dt && inPeriod(dt);
   });
   const total = comN8n.length;
-  const agendaram = comN8n.filter(r => r.dt_apresentacao).length;
+  const agendaram = comN8n.filter(r => {
+    if (!r.dt_apresentacao) return false;
+    const dtDisp = dataDoDisparo(r.campanha_n8n);
+    return dtDisp && r.dt_apresentacao >= dtDisp;
+  }).length;
   const converteram = comN8n.filter(r => r.etapa === 'Pagamento Recebido').length;
   const receita = converteram * TICKET_MEDIO;
   const kpis = [
