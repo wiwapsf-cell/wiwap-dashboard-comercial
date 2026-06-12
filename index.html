@@ -2032,12 +2032,14 @@ function renderMetaAds() {
   const gastoTotal = metaPeriodo.reduce((s, r) => s + r.valor, 0);
   const diasUnicos = new Set(metaPeriodo.map(r => r.dt_inicio)).size;
 
-  // Leads vindos do Meta (Bitrix) no período — fluxo válido (sem Outros Segmentos)
-  const metaLeads = flowRecords.filter(byHunter).filter(byCreated).filter(r => r.fonte && r.fonte.includes('Tráfego Pago Meta'));
-  const metaLeadCount = metaLeads.length;
+  // Leads vindos do Meta (Bitrix) no período — TODOS (qualificados + outros segm.)
+  const metaLeadsTodos = allRecords.filter(byHunter).filter(byCreated).filter(r => r.fonte && r.fonte.includes('Tráfego Pago Meta'));
+  const metaLeadCount = metaLeadsTodos.length;
+  const metaQualificados = metaLeadsTodos.filter(r => r.etapa !== OUTROS_SEGMENTOS).length;
+  const metaDescartados = metaLeadCount - metaQualificados;
 
-  // Pagamentos vindos do Meta
-  const metaPag = metaLeads.filter(r => r.etapa === 'Pagamento Recebido').length;
+  // Pagamentos vindos do Meta (só no fluxo válido)
+  const metaPag = metaLeadsTodos.filter(r => r.etapa === 'Pagamento Recebido').length;
 
   // Métricas
   const cpl = metaLeadCount > 0 ? gastoTotal / metaLeadCount : 0;
@@ -2049,7 +2051,7 @@ function renderMetaAds() {
 
   const kpis = [
     { label: 'Investimento Meta', value: fmtMoney(gastoTotal), sub: `${fmt(diasUnicos)} dias com gasto`, color: COLORS.primary },
-    { label: 'Leads Meta', value: fmt(metaLeadCount), sub: 'Leads do tráfego pago (segm. válido)', color: COLORS.accent },
+    { label: 'Leads Meta', value: fmt(metaLeadCount), sub: `${fmt(metaQualificados)} qualif. · ${fmt(metaDescartados)} fora do nicho`, color: COLORS.accent },
     { label: 'CPL', value: fmtMoney(cpl), sub: 'Custo por Lead', color: cpl <= 15 ? COLORS.success : cpl <= 30 ? COLORS.warning : COLORS.danger },
     { label: 'Fechamentos Meta', value: fmt(metaPag), sub: `${fmtPct(taxaConv,2)} dos leads Meta`, color: COLORS.success },
     { label: 'CAC', value: fmtMoney(cac), sub: 'Custo por Aquisição', color: COLORS.warning },
@@ -2074,7 +2076,7 @@ function renderMetaAds() {
     if (key in map) map[key].gasto += r.valor;
   });
   // Leads Meta por bucket
-  metaLeads.forEach(r => {
+  metaLeadsTodos.forEach(r => {
     const key = bucketKey(r.criado_em, gran);
     if (key in map) map[key].leads++;
   });
