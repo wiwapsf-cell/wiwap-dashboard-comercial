@@ -133,6 +133,13 @@
     .n8n-kpi-label { font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--c-text-2); font-weight: 800; }
     .n8n-kpi-value { font-size: 24px; font-weight: 800; line-height: 1.1; margin-top: 5px; font-family: 'JetBrains Mono', monospace; color: var(--c-primary); }
     .n8n-kpi-sub { font-size: 10px; color: var(--c-text-2); margin-top: 3px; }
+    .meta-bar-row { display: grid; grid-template-columns: 140px 1fr 110px; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+    .meta-bar-row:last-child { border-bottom: none; }
+    .meta-bar-name { font-size: 12px; font-weight: 600; color: var(--c-text-1); }
+    .meta-bar-track { background: #f1f5f9; border-radius: 10px; height: 10px; overflow: hidden; position: relative; }
+    .meta-bar-fill { height: 100%; border-radius: 10px; transition: width .4s ease; }
+    .meta-bar-info { font-size: 11px; color: var(--c-text-2); text-align: right; font-family: 'JetBrains Mono', monospace; }
+    .meta-bar-pct { font-weight: 700; }
 
     .map-metric-btn { padding: 6px 11px; border-radius: 7px; font-size: 11px; font-weight: 700; background: transparent; color: var(--c-text-2); cursor: pointer; border: none; transition: all .15s; }
     .map-metric-btn:hover { color: var(--c-primary); }
@@ -393,6 +400,10 @@
         <div style="margin-top:16px;">
           <div class="panel-subtitle" style="margin-bottom:8px;font-weight:600;color:var(--c-text-2);">Faturamento por Bandeira (Segmento)</div>
           <div id="c-fat-bandeira" class="chart chart-md"></div>
+        </div>
+        <div style="margin-top:24px;">
+          <div class="panel-subtitle" style="margin-bottom:12px;font-weight:600;color:var(--c-text-2);">Meta Mensal por Hunter — quanto falta para atingir R$ 60.000</div>
+          <div id="fat-meta-bars"></div>
         </div>
       </div>
     </div>
@@ -2012,6 +2023,45 @@ function renderFaturamento() {
         }]
       }, true);
     }
+  }
+
+  // Painel: Meta Mensal por Hunter (barras de progresso)
+  const metaBarsEl = document.getElementById('fat-meta-bars');
+  if (metaBarsEl) {
+    // Faturamento do mês atual por hunter (ignora filtro de hunter pra sempre mostrar todos)
+    const fatMesPorHunter = {};
+    HUNTERS_WHITELIST.forEach(h => { fatMesPorHunter[h] = 0; });
+    fatRecords.forEach(r => {
+      if (!r.dt_pagamento || r.estorno) return;
+      if (!r.dt_pagamento.startsWith(`${anoAtual}-${String(mesAtual).padStart(2,'0')}`)) return;
+      if (!r.nome) return;
+      const fatFirst = r.nome.trim().split(/\s+/)[0].toLowerCase();
+      const hunter = HUNTERS_WHITELIST.find(h => h.split(/\s+/)[0].toLowerCase() === fatFirst);
+      if (hunter) fatMesPorHunter[hunter] += r.valor;
+    });
+    const ordered = HUNTERS_WHITELIST.map(h => ({ nome: h, total: fatMesPorHunter[h] })).sort((a,b) => b.total - a.total);
+    metaBarsEl.innerHTML = ordered.map((h, i) => {
+      const pct = META_POR_HUNTER > 0 ? (h.total / META_POR_HUNTER) : 0;
+      const pctClamped = Math.min(pct, 1);
+      const falta = Math.max(META_POR_HUNTER - h.total, 0);
+      const cor = pct >= 1 ? COLORS.success : pct >= 0.7 ? COLORS.accent : pct >= 0.4 ? COLORS.warning : COLORS.danger;
+      const pctTxt = (pct * 100).toFixed(1).replace('.', ',') + '%';
+      return `
+        <div class="meta-bar-row">
+          <div class="meta-bar-name">${h.nome}</div>
+          <div>
+            <div class="meta-bar-track">
+              <div class="meta-bar-fill" style="width:${(pctClamped*100).toFixed(1)}%;background:${cor}"></div>
+            </div>
+            <div style="font-size:10px;color:var(--c-text-2);margin-top:4px;display:flex;justify-content:space-between;">
+              <span>${fmtMoney(h.total)} / ${fmtMoney(META_POR_HUNTER)}</span>
+              <span>${falta > 0 ? `Faltam ${fmtMoney(falta)}` : '✓ Meta atingida'}</span>
+            </div>
+          </div>
+          <div class="meta-bar-info"><span class="meta-bar-pct" style="color:${cor}">${pctTxt}</span></div>
+        </div>
+      `;
+    }).join('');
   }
 }
 
