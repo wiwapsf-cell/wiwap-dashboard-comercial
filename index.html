@@ -402,7 +402,7 @@
           <div id="c-fat-bandeira" class="chart chart-md"></div>
         </div>
         <div style="margin-top:24px;">
-          <div class="panel-subtitle" style="margin-bottom:12px;font-weight:600;color:var(--c-text-2);">Meta Mensal por Hunter — quanto falta para atingir R$ 60.000</div>
+          <div class="panel-subtitle" id="fat-meta-bars-title" style="margin-bottom:12px;font-weight:600;color:var(--c-text-2);">Metas — Semanal e Mensal</div>
           <div id="fat-meta-bars"></div>
         </div>
       </div>
@@ -574,6 +574,9 @@ const HUNTER_PALETTE = ['#00a0a3', '#003462', '#f59e0b', '#10b981', '#8b5cf6', '
 const TICKET_MEDIO = 860;
 const META_MENSAL = 300000;
 const META_POR_HUNTER = 60000;
+// Metas em setups (vendas). Ticket médio R$ 860 → 70 setups/mês por hunter, 18 setups/semana
+const META_SETUPS_MES_HUNTER = 70;
+const META_SETUPS_SEM_HUNTER = 18;
 const OUTROS_SEGMENTOS = 'Outros Segmentoss';
 
 let fatRecords = [];   // dados faturamento real
@@ -2025,43 +2028,66 @@ function renderFaturamento() {
     }
   }
 
-  // Painel: Meta Mensal por Hunter (barras de progresso)
+  // Painel: Metas Semanal e Mensal (setups = vendas fechadas)
   const metaBarsEl = document.getElementById('fat-meta-bars');
+  const metaTitleEl = document.getElementById('fat-meta-bars-title');
   if (metaBarsEl) {
-    // Faturamento do mês atual por hunter (ignora filtro de hunter pra sempre mostrar todos)
-    const fatMesPorHunter = {};
-    HUNTERS_WHITELIST.forEach(h => { fatMesPorHunter[h] = 0; });
-    fatRecords.forEach(r => {
-      if (!r.dt_pagamento || r.estorno) return;
-      if (!r.dt_pagamento.startsWith(`${anoAtual}-${String(mesAtual).padStart(2,'0')}`)) return;
-      if (!r.nome) return;
-      const fatFirst = r.nome.trim().split(/\s+/)[0].toLowerCase();
-      const hunter = HUNTERS_WHITELIST.find(h => h.split(/\s+/)[0].toLowerCase() === fatFirst);
-      if (hunter) fatMesPorHunter[hunter] += r.valor;
-    });
-    const ordered = HUNTERS_WHITELIST.map(h => ({ nome: h, total: fatMesPorHunter[h] })).sort((a,b) => b.total - a.total);
-    metaBarsEl.innerHTML = ordered.map((h, i) => {
-      const pct = META_POR_HUNTER > 0 ? (h.total / META_POR_HUNTER) : 0;
+    // Calcula início da semana (segunda) e início do mês (datas no formato ISO yyyy-mm-dd)
+    const inicioMes = `${anoAtual}-${String(mesAtual).padStart(2,'0')}-01`;
+    const fimMes = (() => { const dim = new Date(anoAtual, mesAtual, 0).getDate(); return `${anoAtual}-${String(mesAtual).padStart(2,'0')}-${String(dim).padStart(2,'0')}`; })();
+    const dow = hoje.getDay(); // 0=dom, 1=seg, ..., 6=sab
+    const diffSeg = (dow === 0 ? -6 : 1 - dow);
+    const segunda = new Date(hoje); segunda.setDate(hoje.getDate() + diffSeg); segunda.setHours(0,0,0,0);
+    const inicioSemana = segunda.toISOString().slice(0,10);
+
+    // Match de hunter: bate pelo primeiro nome
+    const matchHunterRow = (rec) => {
+      if (!selectedHunter) return true;
+      if (!rec.nome) return false;
+      const h1 = selectedHunter.trim().split(/\s+/)[0].toLowerCase();
+      const h2 = rec.nome.trim().split(/\s+/)[0].toLowerCase();
+      return h1 === h2;
+    };
+
+    // Conta setups (vendas) válidas (sem estorno) no mês e na semana
+    const setupsMes = fatRecords.filter(r => r.dt_pagamento && !r.estorno && matchHunterRow(r) && r.dt_pagamento >= inicioMes && r.dt_pagamento <= fimMes).length;
+    const setupsSemana = fatRecords.filter(r => r.dt_pagamento && !r.estorno && matchHunterRow(r) && r.dt_pagamento >= inicioSemana && r.dt_pagamento <= fimMes).length;
+
+    // Metas (por hunter se filtrado, time se não)
+    const metaSemana = selectedHunter ? META_SETUPS_SEM_HUNTER : META_SETUPS_SEM_HUNTER * HUNTERS_WHITELIST.length;
+    const metaMes = selectedHunter ? META_SETUPS_MES_HUNTER : META_SETUPS_MES_HUNTER * HUNTERS_WHITELIST.length;
+
+    metaTitleEl.textContent = selectedHunter
+      ? `Metas — ${selectedHunter.split(/\s+/)[0]}`
+      : `Metas — Time (${HUNTERS_WHITELIST.length} hunters)`;
+
+    const renderBar = (label, atingido, meta, cor) => {
+      const pct = meta > 0 ? atingido / meta : 0;
       const pctClamped = Math.min(pct, 1);
-      const falta = Math.max(META_POR_HUNTER - h.total, 0);
-      const cor = pct >= 1 ? COLORS.success : pct >= 0.7 ? COLORS.accent : pct >= 0.4 ? COLORS.warning : COLORS.danger;
+      const falta = Math.max(meta - atingido, 0);
       const pctTxt = (pct * 100).toFixed(1).replace('.', ',') + '%';
+      const corFinal = pct >= 1 ? COLORS.success : cor;
       return `
-        <div class="meta-bar-row">
-          <div class="meta-bar-name">${h.nome}</div>
-          <div>
-            <div class="meta-bar-track">
-              <div class="meta-bar-fill" style="width:${(pctClamped*100).toFixed(1)}%;background:${cor}"></div>
-            </div>
-            <div style="font-size:10px;color:var(--c-text-2);margin-top:4px;display:flex;justify-content:space-between;">
-              <span>${fmtMoney(h.total)} / ${fmtMoney(META_POR_HUNTER)}</span>
-              <span>${falta > 0 ? `Faltam ${fmtMoney(falta)}` : '✓ Meta atingida'}</span>
+        <div style="margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:700;color:var(--c-text-1);">${label}</div>
+            <div style="font-size:12px;color:var(--c-text-2);font-family:'JetBrains Mono',monospace;">
+              <span style="font-weight:700;color:${corFinal};">${atingido}</span> / ${meta} setups
+              <span style="color:${corFinal};font-weight:700;margin-left:6px;">(${pctTxt})</span>
             </div>
           </div>
-          <div class="meta-bar-info"><span class="meta-bar-pct" style="color:${cor}">${pctTxt}</span></div>
-        </div>
-      `;
-    }).join('');
+          <div class="meta-bar-track" style="height:12px;">
+            <div class="meta-bar-fill" style="width:${(pctClamped*100).toFixed(1)}%;background:${corFinal};height:12px;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--c-text-2);margin-top:6px;">
+            ${falta > 0 ? `Faltam <strong style="color:var(--c-text-1);">${falta} setups</strong> para a meta` : '<strong style="color:'+COLORS.success+';">✓ Meta atingida!</strong>'}
+          </div>
+        </div>`;
+    };
+
+    metaBarsEl.innerHTML =
+      renderBar('Meta semanal', setupsSemana, metaSemana, COLORS.success) +
+      renderBar('Meta mensal acumulada', setupsMes, metaMes, '#c08a2a');
   }
 }
 
