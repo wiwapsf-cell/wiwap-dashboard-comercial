@@ -2030,8 +2030,9 @@ function renderMetaAds() {
   // Gastos Meta no período
   const metaPeriodo = metaRecords.filter(r => r.dt_inicio && inPeriod(r.dt_inicio));
   const gastoTotal = metaPeriodo.reduce((s, r) => s + r.valor, 0);
+  const diasUnicos = new Set(metaPeriodo.map(r => r.dt_inicio)).size;
 
-  // Leads vindos do Meta (Bitrix) no período
+  // Leads vindos do Meta (Bitrix) no período — fluxo válido (sem Outros Segmentos)
   const metaLeads = flowRecords.filter(byHunter).filter(byCreated).filter(r => r.fonte && r.fonte.includes('Tráfego Pago Meta'));
   const metaLeadCount = metaLeads.length;
 
@@ -2044,12 +2045,13 @@ function renderMetaAds() {
   const ticketReal = getTicketMedioReal();
   const receitaMeta = metaPag * ticketReal;
   const roas = gastoTotal > 0 ? receitaMeta / gastoTotal : 0;
+  const taxaConv = metaLeadCount > 0 ? metaPag / metaLeadCount : 0;
 
   const kpis = [
-    { label: 'Investimento Meta', value: fmtMoney(gastoTotal), sub: `${fmt(metaPeriodo.length)} dias com gasto`, color: COLORS.primary },
-    { label: 'Leads Meta', value: fmt(metaLeadCount), sub: 'Leads do tráfego pago', color: COLORS.accent },
+    { label: 'Investimento Meta', value: fmtMoney(gastoTotal), sub: `${fmt(diasUnicos)} dias com gasto`, color: COLORS.primary },
+    { label: 'Leads Meta', value: fmt(metaLeadCount), sub: 'Leads do tráfego pago (segm. válido)', color: COLORS.accent },
     { label: 'CPL', value: fmtMoney(cpl), sub: 'Custo por Lead', color: cpl <= 15 ? COLORS.success : cpl <= 30 ? COLORS.warning : COLORS.danger },
-    { label: 'Fechamentos Meta', value: fmt(metaPag), sub: 'Pagamentos de leads Meta', color: COLORS.success },
+    { label: 'Fechamentos Meta', value: fmt(metaPag), sub: `${fmtPct(taxaConv,2)} dos leads Meta`, color: COLORS.success },
     { label: 'CAC', value: fmtMoney(cac), sub: 'Custo por Aquisição', color: COLORS.warning },
     { label: 'ROAS', value: roas.toFixed(2) + 'x', sub: `Receita ${fmtMoney(receitaMeta)} / Gasto ${fmtMoney(gastoTotal)}`, color: roas >= 3 ? COLORS.success : roas >= 1 ? COLORS.warning : COLORS.danger }
   ];
