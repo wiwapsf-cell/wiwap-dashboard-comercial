@@ -2090,10 +2090,11 @@ function processMetaRow(row) {
 }
 
 function loadData() {
+  const safeFetch = (url) => parseCsvPromise(url).catch(e => { console.warn('CSV opcional falhou:', url, e); return { data: [] }; });
   Promise.all([
     parseCsvPromise(CSV_URL),
-    parseCsvPromise(CSV_FAT),
-    parseCsvPromise(CSV_META)
+    safeFetch(CSV_FAT),
+    safeFetch(CSV_META)
   ]).then(([bitrixRes, fatRes, metaRes]) => {
     try {
       // Bitrix (principal)
@@ -2104,21 +2105,23 @@ function loadData() {
       outrosRecords = allRecords.filter(r => r.etapa === OUTROS_SEGMENTOS);
       if (allRecords.length === 0) throw new Error('Nenhum registro válido na planilha Bitrix.');
 
-      // Faturamento
+      // Faturamento (opcional)
       if (fatRes.data && fatRes.data.length > 0) {
-        fatRecords = fatRes.data.map(processFatRow).filter(r => r.dt_pagamento && r.valor > 0);
+        try { fatRecords = fatRes.data.map(processFatRow).filter(r => r.dt_pagamento && r.valor > 0); }
+        catch(e) { console.warn('Erro processando faturamento:', e); fatRecords = []; }
       }
 
-      // Meta Ads
+      // Meta Ads (opcional)
       if (metaRes.data && metaRes.data.length > 0) {
-        metaRecords = metaRes.data.map(processMetaRow).filter(r => r.dt_inicio && r.valor > 0);
+        try { metaRecords = metaRes.data.map(processMetaRow).filter(r => r.dt_inicio && r.valor > 0); }
+        catch(e) { console.warn('Erro processando Meta Ads:', e); metaRecords = []; }
       }
 
       document.getElementById('loadingOverlay').style.display = 'none';
       initDashboard();
     } catch (err) { showError(err.message); }
   }).catch(err => {
-    showError('Erro ao acessar planilhas: ' + (err.message || 'verifique os links de publicação.'));
+    showError('Erro ao acessar planilha Bitrix: ' + (err.message || 'verifique o link de publicação.'));
   });
 }
 function showError(msg) {
