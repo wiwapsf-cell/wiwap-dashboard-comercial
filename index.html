@@ -344,8 +344,63 @@
       </div>
     </div>
 
+    <!-- REUNIÃO AGENDADA -->
+    <div class="stage-wrap">
+      <div class="stage-head" style="background:#eef3f8">
+        <div class="stage-ico" style="background:var(--c-primary)">4</div>
+        <div>
+          <div class="stage-name">Reunião Agendada</div>
+          <div class="stage-desc">Data e horário definidos — hunter apresenta a solução ao vivo</div>
+        </div>
+        <span class="stage-pill pill-navy" style="margin-left:auto">Hunter + SDR</span>
+      </div>
+      <div class="stage-body">
+        <div class="mks" id="reuniao-mks"></div>
+        <div id="ch-reuniao" style="height:220px"></div>
+      </div>
+    </div>
+
+    <!-- SHOW-UP -->
+    <div class="stage-wrap">
+      <div class="stage-head" style="background:#f0fdf4">
+        <div class="stage-ico" style="background:#059669">5</div>
+        <div>
+          <div class="stage-name">Show-up</div>
+          <div class="stage-desc">Lead participou da reunião — automação aciona M1/M2 se não houver resposta</div>
+        </div>
+        <span class="stage-pill pill-teal" style="margin-left:auto">Whapi · n8n</span>
+      </div>
+      <div class="stage-body">
+        <div class="mks" id="showup-mks"></div>
+        <div class="g3">
+          <div id="ch-show-horario-v2" style="height:200px"></div>
+          <div id="ch-show-hunter-v2" style="height:200px"></div>
+          <div id="ch-show-dia-v2" style="height:200px"></div>
+        </div>
+        <div class="g2" style="margin-top:11px">
+          <div id="ch-su-lig" style="height:180px"></div>
+          <div id="ch-su-m" style="height:180px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INTERAÇÃO -->
+    <div class="stage-wrap">
+      <div class="stage-head" style="background:#f5f3ff">
+        <div class="stage-ico" style="background:#7c3aed">6</div>
+        <div>
+          <div class="stage-name">Interação</div>
+          <div class="stage-desc">Negociação ativa — automação aciona M1 após 5 dias de silêncio</div>
+        </div>
+        <span class="stage-pill" style="background:#f5f3ff;color:#7c3aed;margin-left:auto">Whapi · n8n</span>
+      </div>
+      <div class="stage-body">
+        <div class="mks" id="interacao-mks"></div>
+        <div id="ch-interacoes-hunter-v2" style="height:200px"></div>
+      </div>
+    </div>
+
     <!-- NEGOCIAÇÃO QUENTE -->
-    <div class="stage-wrap" id="stage-ng">
       <div class="stage-head" style="background:#fffbeb">
         <div class="stage-ico" style="background:#d97706">7</div>
         <div>
@@ -520,31 +575,6 @@
       </div>
     </div>
 
-    <!-- PAINEL FATURAMENTO REAL & METAS -->
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">💰 Faturamento Real & Metas</div>
-            <div class="panel-subtitle">Dados reais de pagamento — projeção apenas dias úteis (sem feriados)</div>
-          </div>
-          <span class="panel-tag">dados planilha parceiros</span>
-        </div>
-        <div id="fat-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:8px 0 16px;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-          <div id="c-fat-timeline" class="chart chart-md"></div>
-          <div id="c-fat-hunters" class="chart chart-md"></div>
-        </div>
-        <div style="margin-top:16px;">
-          <div class="panel-subtitle" style="margin-bottom:8px;font-weight:600;color:var(--c-text-2);">Faturamento por Bandeira (Segmento)</div>
-          <div id="c-fat-bandeira" class="chart chart-md"></div>
-        </div>
-        <div style="margin-top:24px;">
-          <div class="panel-subtitle" id="fat-meta-bars-title" style="margin-bottom:12px;font-weight:600;color:var(--c-text-2);">Metas — Semanal e Mensal</div>
-          <div id="fat-meta-bars"></div>
-        </div>
-      </div>
-    </div>
 
   </div>
   <div id="tab-acomp" class="tab-content">
@@ -599,38 +629,58 @@
 
   <div id="tab-mkt" class="tab-content">
 
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Funil Marketing → Comercial</div>
-            <div class="panel-subtitle">Leads captados → com segmento válido → agendaram reunião</div>
-          </div>
-          <span class="panel-tag">por dt. criação</span>
-        </div>
-        <div id="c-funil-mkt" class="chart chart-lg"></div>
+    <!-- KPIs MARKETING -->
+    <div class="grid-12" style="margin-bottom:14px">
+      <div class="panel" style="grid-column:span 12">
+        <div id="mkt-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:4px 0 8px"></div>
       </div>
     </div>
 
+    <!-- IMPACTO API OFICIAL -->
     <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
+      <div class="panel" style="grid-column:span 12;margin-bottom:14px">
         <div class="panel-header">
           <div>
-            <div class="panel-title">Evolução do No-Show</div>
-            <div class="panel-subtitle">Reuniões agendadas vs realizadas — apenas dias úteis</div>
+            <div class="panel-title">Impacto da API Oficial (Meta)</div>
+            <div class="panel-subtitle">Abandono (botão "Agendar Reunião") + CA S2 — leads que chegaram à reunião pelo disparo automático</div>
           </div>
-          <span class="panel-tag">por dt. agendamento</span>
         </div>
-        <div id="c-noshow-timeline" class="chart chart-xl"></div>
+        <div id="mkt-api-mks" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px"></div>
+        <div id="ch-mkt-api-tl" class="chart chart-md"></div>
       </div>
     </div>
 
+    <!-- PERFORMANCE DE TEMPLATES -->
+    <div style="font-size:10px;font-weight:800;color:var(--c-text-2);text-transform:uppercase;letter-spacing:.08em;padding:4px 0 10px;border-bottom:1px solid var(--c-border-2);margin-bottom:14px">Performance de templates — API Oficial</div>
     <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
+      <div class="panel" style="grid-column:span 6">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Templates — Abandono Pós Cadastro</div>
+            <div class="panel-subtitle">Campo [Abandono] Template Enviado · retorno = clicou "Agendar Reunião"</div>
+          </div>
+        </div>
+        <div id="ch-mkt-tmpl-ab" class="chart chart-md"></div>
+      </div>
+      <div class="panel" style="grid-column:span 6">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Templates — CA S2 (Não respondeu SDR)</div>
+            <div class="panel-subtitle">Campo [CA] Template Enviado · retorno = campo "Respondeu" = Sim</div>
+          </div>
+        </div>
+        <div id="ch-mkt-tmpl-ca" class="chart chart-md"></div>
+      </div>
+    </div>
+
+    <!-- AQUISIÇÃO E FONTES -->
+    <div style="font-size:10px;font-weight:800;color:var(--c-text-2);text-transform:uppercase;letter-spacing:.08em;padding:12px 0 10px;border-bottom:1px solid var(--c-border-2);margin-bottom:14px">Aquisição e fontes</div>
+    <div class="grid-12">
+      <div class="panel" style="grid-column:span 12">
         <div class="panel-header">
           <div>
             <div class="panel-title">Aquisição de leads</div>
-            <div class="panel-subtitle">Volume de leads criados</div>
+            <div class="panel-subtitle">Volume de leads criados por dia — campo criado_em</div>
           </div>
           <span class="panel-tag">por dt. criação</span>
         </div>
@@ -639,94 +689,24 @@
     </div>
 
     <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
+      <div class="panel" style="grid-column:span 12">
         <div class="panel-header">
           <div>
-            <div class="panel-title">Evolução de leads por fonte</div>
-            <div class="panel-subtitle">Volume por canal de aquisição ao longo do tempo</div>
+            <div class="panel-title">Volume por fonte / campanha + taxa de conversão</div>
+            <div class="panel-subtitle">Barras = volume · Linha = taxa conversão (pagamentos/leads)</div>
           </div>
-          <span class="panel-tag">por dt. criação</span>
         </div>
         <div id="c-evolucao-fonte" class="chart chart-lg"></div>
       </div>
     </div>
 
+    <!-- GASTO VS RECEITA -->
+    <div style="font-size:10px;font-weight:800;color:var(--c-text-2);text-transform:uppercase;letter-spacing:.08em;padding:12px 0 10px;border-bottom:1px solid var(--c-border-2);margin-bottom:14px">Investimento vs retorno</div>
     <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
+      <div class="panel" style="grid-column:span 12">
         <div class="panel-header">
           <div>
-            <div class="panel-title">Show-up por fonte / campanha</div>
-            <div class="panel-subtitle">Quais origens trazem leads mais comprometidos com a reunião agendada</div>
-          </div>
-        </div>
-        <div id="c-show-fonte" class="chart chart-md"></div>
-      </div>
-    </div>
-
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 6;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Tempo médio até agendamento</div>
-            <div class="panel-subtitle">Dias entre a criação do lead e o agendamento da reunião (responsabilidade SDR)</div>
-          </div>
-          <span class="panel-tag-value" id="tempoMedioTag">—</span>
-        </div>
-        <div id="c-tempo-agendamento" class="chart chart-md"></div>
-      </div>
-      <div class="panel" style="grid-column: span 6;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Show-up por segmento</div>
-            <div class="panel-subtitle">Segmentos com maior taxa de comparecimento</div>
-          </div>
-        </div>
-        <div id="c-show-segmento" class="chart chart-md"></div>
-      </div>
-    </div>
-
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 6;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Leads fora do nicho</div>
-            <div class="panel-subtitle">Fontes que mais trazem leads de "Outros Segmentos"</div>
-          </div>
-          <span class="panel-tag">desperdício</span>
-        </div>
-        <div id="c-outros" class="chart chart-md"></div>
-      </div>
-      <div class="panel" style="grid-column: span 6;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">⚡ Retomada via n8n</div>
-            <div class="panel-subtitle">Disparos do n8n no período — quantos voltaram e converteram</div>
-          </div>
-          <span class="panel-tag">por dt. do disparo</span>
-        </div>
-        <div class="n8n-kpis" id="n8n-kpis" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 10px;"></div>
-        <div id="c-n8n-timeline" class="chart" style="height: 170px;"></div>
-      </div>
-    </div>
-
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">Qualidade por fonte / campanha</div>
-            <div class="panel-subtitle">Volume, taxa de agendamento, show-up e fechamento</div>
-          </div>
-        </div>
-        <div id="t-fontes"></div>
-      </div>
-    </div>
-
-    <!-- PAINEL PERFORMANCE TRÁFEGO PAGO -->
-    <div class="grid-12">
-      <div class="panel" style="grid-column: span 12;">
-        <div class="panel-header">
-          <div>
-            <div class="panel-title">📊 Performance Tráfego Pago (Meta Ads)</div>
+            <div class="panel-title">📊 Performance Meta Ads</div>
             <div class="panel-subtitle">Investimento, CPL, CAC e ROAS — dados reais do Meta Ads</div>
           </div>
           <span class="panel-tag">dados Meta Ads</span>
@@ -737,7 +717,6 @@
     </div>
 
   </div>
-
   <footer>Wiwap · Dashboard de Performance · Dados do Bitrix24 via n8n</footer>
 </main>
 
@@ -2484,17 +2463,13 @@ function renderComercial() {
   renderFaturamento();
 }
 function renderMkt() {
-  renderFunilMkt();
-  renderNoShowTimeline();
-  renderAquisicao();
-  renderEvolucaoFonte();
-  renderShowFonte();
-  renderTempoAgendamento();
-  renderShowSegmento();
-  renderOutros();
-  renderN8n();
-  renderFontesTable();
-  renderMetaAds();
+  // KPIs marketing (reaproveitando renderMetaAds para o bloco Meta)
+  renderMktKPIs();
+  renderMktApiOficial();
+  renderMktTemplates();
+  renderAquisicao();        // reutiliza função existente (chart c-aquisicao)
+  renderEvolucaoFonte();    // reutiliza função existente (chart c-evolucao-fonte)
+  renderMetaAds();          // reutiliza função existente (meta-kpis + c-meta-timeline)
 }
 function renderAll() {
   renderKPIs();
@@ -2575,15 +2550,135 @@ function initDashboard() {
 loadData();
 
 // ═══════════════════════════════════════════════════
+// MARKETING V5 — funções de render
+// ═══════════════════════════════════════════════════
+
+function renderMktKPIs() {
+  const el = document.getElementById('mkt-kpis');
+  if (!el) return;
+  const recs = flowRecords.filter(r => inPeriod(r.criado_em));
+  const leads = recs.length;
+  const pags  = recs.filter(r => r.dt_pagamento).length;
+  const investTotal = metaRecords.filter(r => r.dt_inicio && inPeriod(r.dt_inicio)).reduce((s,r)=>s+r.valor,0);
+  const fatReal = fatRecords.filter(r => r.dt_pagamento && inPeriod(r.dt_pagamento) && !r.estorno).reduce((s,r)=>s+r.valor,0);
+  const cpl    = leads > 0 && investTotal > 0 ? fmtMoney(investTotal/leads) : '—';
+  const cac    = pags > 0 && investTotal > 0 ? fmtMoney(investTotal/pags) : '—';
+  const roas   = investTotal > 0 && fatReal > 0 ? (fatReal/investTotal).toFixed(2)+'×' : '—';
+  const novoRecs = Object.values(novoMap);
+  const abEnv = novoRecs.filter(r=>(r['[Abandono] Template Enviado']||'').trim()).length;
+  const s2Env = novoRecs.filter(r=>(r['[CA-S2] Disparo Imediato']||'').trim()).length;
+  const kpis = [
+    {label:'CPL',tag:'LEAD',val:cpl,sub:'Invest. / leads',color:'var(--c-accent)'},
+    {label:'CAC',tag:'PAGAMENTO',val:cac,sub:'Invest. / fechamentos',color:'#d97706'},
+    {label:'ROAS',tag:'',val:roas,sub:'Receita / investimento',color:'#059669'},
+    {label:'Investimento total',tag:'',val:fmtMoney(investTotal),sub:'Meta Ads',color:'var(--c-primary)'},
+    {label:'Msgs API Oficial',tag:'',val:String(abEnv+s2Env),sub:`${abEnv} Abandono · ${s2Env} CA S2`,color:'#7c3aed'},
+  ];
+  el.innerHTML = kpis.map(k=>`
+    <div style="background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:10px;padding:12px 14px">
+      <div style="font-size:9.5px;font-weight:800;color:var(--c-text-2);text-transform:uppercase;letter-spacing:.05em">${k.label}${k.tag?` <span style="background:#e8eef5;padding:1px 5px;border-radius:4px;font-size:8px">${k.tag}</span>`:''}</div>
+      <div style="font-size:20px;font-weight:800;color:${k.color};font-family:'JetBrains Mono',monospace;margin:4px 0">${k.val}</div>
+      <div style="font-size:10px;color:var(--c-text-3)">${k.sub}</div>
+    </div>`).join('');
+}
+
+function renderMktApiOficial() {
+  if (!Object.keys(novoMap).length) return;
+  const recs = flowRecords.filter(r => !selectedHunter || r.responsavel === selectedHunter);
+  const novo = id => novoMap[String(id)] || {};
+  const str2  = (r, k) => (r[k]||'').trim();
+  const viaAb  = recs.filter(r => str2(novo(r.id_bitrix),'[Abandono] Resposta Botão') === 'Agendar Reunião');
+  const viaS2  = recs.filter(r => str2(novo(r.id_bitrix),'[CA-S2] Respondeu') === 'Sim');
+  const total  = [...new Set([...viaAb.map(r=>r.id_bitrix),...viaS2.map(r=>r.id_bitrix)])].length;
+  const conv   = recs.filter(r => r.dt_pagamento && (str2(novo(r.id_bitrix),'[Abandono] Resposta Botão') === 'Agendar Reunião' || str2(novo(r.id_bitrix),'[CA-S2] Respondeu') === 'Sim')).length;
+  const ticket = getTicketMedioReal();
+  const mksEl = document.getElementById('mkt-api-mks');
+  if (mksEl) mksEl.innerHTML = [
+    {l:'Total agendados via API',v:String(total),c:'nv'},
+    {l:'Via Abandono (botão)',v:String(viaAb.length),c:'tl'},
+    {l:'Via CA S2',v:String(viaS2.length),c:'tl'},
+    {l:'Converteram',v:`${conv} (${total>0?(conv/total*100).toFixed(0):'0'}%)`,c:'gr'},
+    {l:'Receita recuperada',v:fmtMoney(conv*ticket),c:'gr'},
+  ].map(k=>`<div class="kpi-mini" style="background:var(--c-bg);border:1px solid var(--c-border-2);border-radius:8px;padding:10px 12px"><div style="font-size:9px;font-weight:700;color:var(--c-text-2);text-transform:uppercase;margin-bottom:4px">${k.l}</div><div style="font-size:18px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--c-${k.c==='nv'?'primary':k.c==='tl'?'accent':k.c==='gr'?'success':'primary'})">${k.v}</div></div>`).join('');
+  const byDay = {};
+  for (const r of recs) {
+    const n = novo(r.id_bitrix);
+    const ab = str2(n,'[Abandono] Data entrada');
+    const s2 = str2(n,'[CA-S2] Disparo Imediato');
+    if (ab) { const k=ab.slice(0,10); if(!byDay[k])byDay[k]={ab:0,s2:0}; byDay[k].ab++; }
+    if (s2) { const k=s2.slice(0,10); if(!byDay[k])byDay[k]={ab:0,s2:0}; byDay[k].s2++; }
+  }
+  const dias = Object.keys(byDay).sort().slice(-30);
+  const ch = freshChart('ch-mkt-api-tl');
+  if (ch && dias.length) {
+    ch.setOption({
+      tooltip:{trigger:'axis'}, legend:{bottom:0,data:['Via Abandono','Via CA S2']},
+      grid:{left:'5%',right:'5%',bottom:'15%',top:'5%',containLabel:true},
+      xAxis:{type:'category',data:dias.map(d=>d.slice(5)),axisLabel:{fontSize:9}},
+      yAxis:{type:'value',minInterval:1},
+      series:[
+        {name:'Via Abandono',type:'bar',stack:'total',data:dias.map(d=>byDay[d]?.ab||0),itemStyle:{color:'#00a0a3'}},
+        {name:'Via CA S2',type:'bar',stack:'total',data:dias.map(d=>byDay[d]?.s2||0),itemStyle:{color:'#003462'}},
+      ]
+    });
+    setTimeout(()=>ch.resize(),100);
+  }
+}
+
+function renderMktTemplates() {
+  if (!Object.keys(novoMap).length) return;
+  const recs = flowRecords;
+  const novo = id => novoMap[String(id)] || {};
+  const str2  = (r, k) => (r[k]||'').trim();
+  const buildTmplChart = (id, tmplMap, color, metricLabel) => {
+    const ch = freshChart(id);
+    if (!ch || !Object.keys(tmplMap).length) return;
+    const names = Object.keys(tmplMap).slice(0,8);
+    const short = names.map(n=>n.length>22?n.slice(0,20)+'…':n);
+    ch.setOption({
+      tooltip:{trigger:'axis'}, legend:{bottom:0,data:['Disparos',metricLabel]},
+      grid:{left:'5%',right:'10%',bottom:'30%',top:'10%',containLabel:true},
+      xAxis:{type:'category',data:short,axisLabel:{fontSize:8,rotate:30}},
+      yAxis:[{type:'value',minInterval:1},{type:'value',axisLabel:{formatter:'{value}%'}}],
+      series:[
+        {name:'Disparos',type:'bar',data:names.map(n=>tmplMap[n].total),itemStyle:{color},barMaxWidth:30},
+        {name:metricLabel,type:'line',yAxisIndex:1,data:names.map(n=>tmplMap[n].total>0?(tmplMap[n].hit/tmplMap[n].total*100).toFixed(1):0),lineStyle:{color:'#003462'},symbol:'circle'},
+      ]
+    });
+    setTimeout(()=>ch.resize(),100);
+  };
+  const tmplAb = {};
+  for (const r of recs) {
+    const n = novo(r.id_bitrix);
+    const t = str2(n,'[Abandono] Template Enviado'); if (!t) continue;
+    if (!tmplAb[t]) tmplAb[t]={total:0,hit:0};
+    tmplAb[t].total++;
+    if (str2(n,'[Abandono] Resposta Botão')==='Agendar Reunião') tmplAb[t].hit++;
+  }
+  buildTmplChart('ch-mkt-tmpl-ab', tmplAb, '#00a0a3', '% Clicou Agendar');
+  const tmplS2 = {};
+  for (const r of recs) {
+    const n = novo(r.id_bitrix);
+    const t = str2(n,'[CA] Template Enviado'); if (!t) continue;
+    if (!tmplS2[t]) tmplS2[t]={total:0,hit:0};
+    tmplS2[t].total++;
+    if (str2(n,'[CA-S2] Respondeu')==='Sim') tmplS2[t].hit++;
+  }
+  buildTmplChart('ch-mkt-tmpl-ca', tmplS2, '#003462', '% Respondeu');
+}
+
+// ═══════════════════════════════════════════════════
 // NOVO DASH — funções de render (dados UF_CRM_*)
 // ═══════════════════════════════════════════════════
 
-function getChart(id) {
+// freshChart: dispose + reinit (força novo instance)
+function freshChart(id) {
   const el = document.getElementById(id);
   if (!el) return null;
   const ex = echarts.getInstanceByDom(el);
   if (ex) ex.dispose();
-  return echarts.init(el);
+  const ch = echarts.init(el);
+  return ch;
 }
 
 function mkCard(label, value, cls) {
@@ -2591,7 +2686,7 @@ function mkCard(label, value, cls) {
 }
 
 function ligChart(id, atendeu, nao, caixa, pendente) {
-  const ch = getChart(id);
+  const ch = freshChart(id);
   if (!ch) return;
   const total = atendeu + nao + caixa + (pendente||0);
   const pct = v => total > 0 ? (v/total*100).toFixed(0)+'%' : '0%';
@@ -2633,7 +2728,7 @@ function renderNovoDash() {
     mkCard('Respondeu', abRespondeu.length, 'tl');
 
   // Pizza abandono
-  const chAbPie = getChart('ch-ab-pie');
+  const chAbPie = freshChart('ch-ab-pie');
   if (chAbPie) {
     const silencio = abTemplEnv.length - abAgendar.length - abInteresse.length;
     chAbPie.setOption({ tooltip:{trigger:'item'},
@@ -2653,7 +2748,7 @@ function renderNovoDash() {
     const t = str(novo(r.id_bitrix), '[Abandono] Template Enviado');
     if (t) tmplCounts[t] = (tmplCounts[t]||0) + 1;
   }
-  const chAbTmpl = getChart('ch-ab-tmpl');
+  const chAbTmpl = freshChart('ch-ab-tmpl');
   if (chAbTmpl && Object.keys(tmplCounts).length) {
     const names = Object.keys(tmplCounts).slice(0,8);
     const vals = names.map(n => tmplCounts[n]);
@@ -2698,6 +2793,114 @@ function renderNovoDash() {
   if (el3) el3.innerHTML = mkCard('D0', s3D0.length, 'or') + mkCard('D+2', s3D2.length, 'or');
   ligChart('ch-s3-lig', s3At, s3Nao, s3Cx);
 
+  // ── REUNIÃO (stage 4) ────────────────────────────────────────────────
+  const agendadas = recs.filter(r => r.dt_reuniao_agendada || r.dt_apresentacao);
+  const realizadas = recs.filter(r => {
+    const n = novo(r.id_bitrix);
+    return str(n,'[Show-up] Data entrada') || r.ultima_interacao === 'Reunião';
+  });
+  const noshow = agendadas.filter(r => {
+    const n = novo(r.id_bitrix);
+    return str(n,'[CA-S3] Disparo Imediato'); // S3 ativado = foi no-show
+  });
+  const showPct = agendadas.length > 0 ? (realizadas.length / agendadas.length * 100).toFixed(1) : '0';
+  const nsPct  = agendadas.length > 0 ? (noshow.length   / agendadas.length * 100).toFixed(1) : '0';
+  const elReu = document.getElementById('reuniao-mks');
+  if (elReu) elReu.innerHTML =
+    mkCard('Agendadas', agendadas.length, 'nv') +
+    mkCard(`Realizadas (${showPct}%)`, realizadas.length, 'gr') +
+    mkCard(`No-show (${nsPct}%)`, noshow.length, 'rd');
+  // Gráfico agendadas por hunter
+  const chReu = freshChart('ch-reuniao');
+  if (chReu) {
+    const agByH  = {}, rlByH  = {}, nsH = {};
+    HUNTERS_WHITELIST.forEach(h => { agByH[h]=0; rlByH[h]=0; nsH[h]=0; });
+    for (const r of recs) {
+      const h = canonHunter(r.responsavel); if (!h) continue;
+      if (r.dt_reuniao_agendada || r.dt_apresentacao) agByH[h]++;
+      const n = novo(r.id_bitrix);
+      if (str(n,'[Show-up] Data entrada') || r.ultima_interacao === 'Reunião') rlByH[h]++;
+      if (str(n,'[CA-S3] Disparo Imediato')) nsH[h]++;
+    }
+    const hns = HUNTERS_WHITELIST.map(h => h.split(' ')[0]);
+    chReu.setOption({
+      tooltip:{trigger:'axis'}, legend:{bottom:0},
+      grid:{left:'5%',right:'5%',bottom:'15%',top:'5%',containLabel:true},
+      xAxis:{type:'category',data:hns},
+      yAxis:{type:'value',minInterval:1},
+      series:[
+        {name:'Agendadas',type:'bar',data:HUNTERS_WHITELIST.map(h=>agByH[h]),itemStyle:{color:'#003462'},barWidth:'25%'},
+        {name:'Realizadas',type:'bar',data:HUNTERS_WHITELIST.map(h=>rlByH[h]),itemStyle:{color:'#059669'},barWidth:'25%'},
+        {name:'No-show',type:'bar',data:HUNTERS_WHITELIST.map(h=>nsH[h]),itemStyle:{color:'#dc2626'},barWidth:'25%'},
+      ]
+    });
+    setTimeout(() => chReu.resize(), 100);
+  }
+
+  // ── SHOW-UP (stage 5) ────────────────────────────────────────────────
+  const suRecs = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Data entrada') || r.ultima_interacao === 'Reunião');
+  const suM1   = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M1'));
+  const suM2   = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M2'));
+  const suLigAt = cnt(recs,'[Show-up] Resultado Ligação','Atendeu');
+  const suLigN  = cnt(recs,'[Show-up] Resultado Ligação','Não atendeu');
+  const suLigC  = cnt(recs,'[Show-up] Resultado Ligação','Caixa Postal');
+  const elSu = document.getElementById('showup-mks');
+  if (elSu) elSu.innerHTML =
+    mkCard('Total Show-up', suRecs.length, 'gr') +
+    mkCard('M1 enviado', suM1.length, 'tl') +
+    mkCard('M2 enviado', suM2.length, 'tl') +
+    mkCard('Lig. pendentes', ligPend, 'or');
+
+  // Reutiliza gráficos já existentes no DOM para show-up por horário/hunter/dia
+  const renderShowChartById = (id, origId) => {
+    const orig = document.getElementById(origId);
+    const dest = document.getElementById(id);
+    if (!dest) return;
+    const origInst = echarts.getInstanceByDom(orig);
+    if (origInst) {
+      const ch2 = freshChart(id);
+      if (ch2) { ch2.setOption(origInst.getOption()); setTimeout(() => ch2.resize(), 100); }
+    }
+  };
+  setTimeout(() => {
+    renderShowChartById('ch-show-horario-v2', 'c-show-horario');
+    renderShowChartById('ch-show-hunter-v2', 'c-show-hunter');
+    renderShowChartById('ch-show-dia-v2', 'c-show-dia');
+  }, 200);
+
+  ligChart('ch-su-lig', suLigAt, suLigN, suLigC);
+  // M1/M2 por dia
+  const chSuM = freshChart('ch-su-m');
+  if (chSuM) {
+    const m1ByDay = {}, m2ByDay = {};
+    for (const r of recs) {
+      const n = novo(r.id_bitrix);
+      const d1 = str(n,'[Show-up] Disparo M1');
+      const d2 = str(n,'[Show-up] Disparo M2');
+      if (d1) { const k = d1.slice(0,10); m1ByDay[k] = (m1ByDay[k]||0)+1; }
+      if (d2) { const k = d2.slice(0,10); m2ByDay[k] = (m2ByDay[k]||0)+1; }
+    }
+    const dias = [...new Set([...Object.keys(m1ByDay),...Object.keys(m2ByDay)])].sort();
+    chSuM.setOption({
+      tooltip:{trigger:'axis'}, legend:{bottom:0},
+      grid:{left:'5%',right:'5%',bottom:'20%',top:'5%',containLabel:true},
+      xAxis:{type:'category',data:dias.map(d=>d.slice(5)),axisLabel:{fontSize:9}},
+      yAxis:{type:'value',minInterval:1},
+      series:[
+        {name:'M1',type:'bar',data:dias.map(d=>m1ByDay[d]||0),itemStyle:{color:'#00a0a3'},barMaxWidth:20},
+        {name:'M2',type:'bar',data:dias.map(d=>m2ByDay[d]||0),itemStyle:{color:'#003462'},barMaxWidth:20},
+      ]
+    });
+    setTimeout(() => chSuM.resize(), 100);
+  }
+
+  // ── INTERAÇÃO (stage 6) ───────────────────────────────────────────────
+  const inRecs = recs.filter(r => str(novo(r.id_bitrix),'[Interação] Data entrada') || r.dt_interacao);
+  const inM1   = recs.filter(r => str(novo(r.id_bitrix),'[Interação] Disparo M1'));
+  const elIn = document.getElementById('interacao-mks');
+  if (elIn) elIn.innerHTML = mkCard('Total Interação', inRecs.length, 'pu') + mkCard('M1 disparado', inM1.length, 'tl');
+  setTimeout(() => renderShowChartById('ch-interacoes-hunter-v2', 'c-interacoes-hunter'), 200);
+
   // ── NEGOCIAÇÃO QUENTE ─────────────────────────────────────────────────
   const ngRecs = recs.filter(r => str(novo(r.id_bitrix), '[NG] Data entrada'));
   const ngLink = cnt(recs, '[NG] Motivo', 'Link de pagamento enviado');
@@ -2711,7 +2914,7 @@ function renderNovoDash() {
     mkCard('Link enviado', `${ngLink} (${ngRecs.length>0?(ngLink/ngRecs.length*100).toFixed(0)+'%':'0%'})`, 'or') +
     mkCard('Contato futuro', ngFut, '');
   // Pizza NG motivo
-  const chNgMot = getChart('ch-ng-motivo');
+  const chNgMot = freshChart('ch-ng-motivo');
   if (chNgMot) chNgMot.setOption({ tooltip:{trigger:'item'},
     series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
       data:[
@@ -2746,17 +2949,17 @@ function renderNovoDash() {
     mkCard('Receita recuperada', fmtMoney(pagComApi.length * ticket), 'gr');
 
   // Pizza conversões com ligação
-  const chLigConv = getChart('ch-lig-conv');
+  const chLigConv = freshChart('ch-lig-conv');
   if (chLigConv) chLigConv.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
     data:[{value:pagComLig.length,name:'Com ligação',itemStyle:{color:'#059669'}},{value:pagRecs.length-pagComLig.length,name:'Sem ligação',itemStyle:{color:'#e2e8f0'}}]
   }]});
-  const chApiConv = getChart('ch-api-conv');
+  const chApiConv = freshChart('ch-api-conv');
   if (chApiConv) chApiConv.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
     data:[{value:pagComApi.length,name:'Via API Oficial',itemStyle:{color:'#003462'}},{value:pagRecs.length-pagComApi.length,name:'Outros',itemStyle:{color:'#e2e8f0'}}]
   }]});
 
   // Ligações por hunter
-  const chLigH = getChart('ch-lig-hunter');
+  const chLigH = freshChart('ch-lig-hunter');
   if (chLigH) {
     const pendByH = {}, realByH = {};
     HUNTERS_WHITELIST.forEach(h => { pendByH[h] = 0; realByH[h] = 0; });
@@ -2856,36 +3059,30 @@ function renderAcomp() {
       <div class="meta-bar-note">Faltam ${Math.max(0,metaMesTime-setupsTotal)} setups (${fmtMoney(restante)})</div>
     </div>`;
 
+  // Helper para match de hunter no fat records (por primeiro nome)
+  const matchFatHunter = (r, hunter) => {
+    if (!r.nome) return false;
+    const h1 = hunter.trim().split(/\s+/)[0].toLowerCase();
+    const h2 = r.nome.trim().split(/\s+/)[0].toLowerCase();
+    return h1 === h2;
+  };
+
   // Hunter cards
   const cardContainer = document.getElementById('ac-hunter-cards');
   if (cardContainer) {
     cardContainer.innerHTML = HUNTERS_WHITELIST.map(hunter => {
-      const hFirst = hunter.split(' ')[0].toLowerCase();
-      const hSetups = fatRecords.filter(r => {
-        if (!r.dt_pagamento || r.estorno) return false;
-        if (r.dt_pagamento < isoMonthStart || r.dt_pagamento > isoNow) return false;
-        return r.nome && r.nome.trim().split(/\s+/)[0].toLowerCase() === hFirst;
-      });
-      const hSemSetups = fatRecords.filter(r => {
-        if (!r.dt_pagamento || r.estorno) return false;
-        if (r.dt_pagamento < isoMonday || r.dt_pagamento > isoNow) return false;
-        return r.nome && r.nome.trim().split(/\s+/)[0].toLowerCase() === hFirst;
-      });
+      const hSetups = fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonthStart && r.dt_pagamento <= isoNow && !r.estorno && matchFatHunter(r, hunter));
+      const hSemSetups = fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonday && r.dt_pagamento <= isoNow && !r.estorno && matchFatHunter(r, hunter));
       const hFat = hSetups.reduce((s,r) => s+r.valor, 0);
       const hTicket = hSetups.length > 0 ? hFat / hSetups.length : 0;
-      const hProj = bdPast > 0 ? Math.round((hFat/bdPast)*bdTotal) : 0;
       const pctM = Math.min(100, META_POR_HUNTER > 0 ? (hFat/META_POR_HUNTER*100) : 0);
       const pctS = Math.min(100, META_SETUPS_SEM_HUNTER > 0 ? (hSemSetups.length/META_SETUPS_SEM_HUNTER*100) : 0);
       const col = colorFor(pctM);
-      const hNovoPend = Object.keys(novoMap).filter(id => {
-        const n = novoMap[id];
-        return str(n,'[Geral] Ligação Pendente') === 'Pendente';
-      }).length; // simplificado — sem filtro por hunter no novoMap ainda
       return `<div class="hcard">
-        <div class="hcard-name">${hunter.split(' ')[0]} ${hunter.split(' ').slice(-1)[0]}</div>
-        <div class="hcard-bar-label"><span>Meta mensal</span><span style="font-family:'JetBrains Mono',monospace">${pctM.toFixed(0)}%</span></div>
+        <div class="hcard-name">${hunter}</div>
+        <div class="hcard-bar-label"><span>Meta mensal (R$${(META_POR_HUNTER/1000).toFixed(0)}k)</span><span style="font-family:'JetBrains Mono',monospace;color:${col}">${pctM.toFixed(0)}%</span></div>
         <div class="hcard-bar"><div class="hcard-bar-fill" style="width:${pctM}%;background:${col}"></div></div>
-        <div class="hcard-bar-label"><span>Meta semanal</span><span>${hSemSetups.length}/${META_SETUPS_SEM_HUNTER}</span></div>
+        <div class="hcard-bar-label"><span>Meta semanal (${META_SETUPS_SEM_HUNTER} setups)</span><span>${hSemSetups.length}/${META_SETUPS_SEM_HUNTER}</span></div>
         <div class="hcard-bar"><div class="hcard-bar-fill" style="width:${pctS}%;background:#00a0a3"></div></div>
         <div class="hcard-stats">
           <div class="hcard-stat"><div class="hcard-stat-l">Faturamento</div><div class="hcard-stat-v" style="font-size:12px;color:${col}">${fmtMoney(hFat)}</div></div>
@@ -2897,7 +3094,7 @@ function renderAcomp() {
   }
 
   // Setups diários
-  const chSetDia = getChart('ch-ac-setups-dia');
+  const chSetDia = freshChart('ch-ac-setups-dia');
   if (chSetDia) {
     const byDay = {};
     fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonthStart && r.dt_pagamento <= isoNow && !r.estorno)
@@ -2913,14 +3110,14 @@ function renderAcomp() {
           data:[{type:'average',name:'Média'}]}
       }]
     });
+    setTimeout(() => chSetDia.resize(), 100);
   }
 
   // Faturamento por hunter vs meta
-  const chFatH = getChart('ch-ac-fat-hunter');
+  const chFatH = freshChart('ch-ac-fat-hunter');
   if (chFatH) {
     const hFats = HUNTERS_WHITELIST.map(hunter => {
-      const hFirst = hunter.split(' ')[0].toLowerCase();
-      return fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonthStart && r.dt_pagamento <= isoNow && !r.estorno && r.nome && r.nome.trim().split(/\s+/)[0].toLowerCase() === hFirst).reduce((s,r) => s+r.valor, 0);
+      return fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonthStart && r.dt_pagamento <= isoNow && !r.estorno && matchFatHunter(r, hunter)).reduce((s,r) => s+r.valor, 0);
     });
     const hNames = HUNTERS_WHITELIST.map(h => h.split(' ')[0]);
     chFatH.setOption({
@@ -2938,7 +3135,7 @@ function renderAcomp() {
   }
 
   // Setups semanais por hunter
-  const chSemH = getChart('ch-ac-sem-hunter');
+  const chSemH = freshChart('ch-ac-sem-hunter');
   if (chSemH) {
     const hSemFats = HUNTERS_WHITELIST.map(hunter => {
       const hFirst = hunter.split(' ')[0].toLowerCase();
@@ -2959,7 +3156,7 @@ function renderAcomp() {
   }
 
   // Faturamento por bandeira
-  const chFatSeg = getChart('ch-ac-fat-seg');
+  const chFatSeg = freshChart('ch-ac-fat-seg');
   if (chFatSeg) {
     const segMap = {};
     fatRecords.filter(r => r.dt_pagamento && r.dt_pagamento >= isoMonthStart && r.dt_pagamento <= isoNow && !r.estorno)
@@ -2977,7 +3174,7 @@ function renderAcomp() {
   }
 
   // Evolução acumulada por hunter
-  const chAcum = getChart('ch-ac-acum');
+  const chAcum = freshChart('ch-ac-acum');
   if (chAcum) {
     const allDias = [];
     let d = new Date(isoMonthStart+'T12:00:00');
