@@ -1135,10 +1135,21 @@ function renderKPIs() {
   const base = flowRecords.filter(byHunter);
   const leads = base.filter(byCreated).length;
   const ag = base.filter(byScheduled).length;
-  const real = base.filter(r => byInteraction(r) && r.ultima_interacao === 'Reunião').length;
+  const real = base.filter(r => {
+    // Legado: dt_interacao no período + ultima_interacao = Reunião
+    if (byInteraction(r) && r.ultima_interacao === 'Reunião') return true;
+    // Novo fluxo: [Show-up] Data entrada no período (entrou em Show-up = participou da reunião)
+    const n = novoMap[String(r.id_bitrix)] || {};
+    const suDate = ((n['[Show-up] Data entrada'])||'').trim().slice(0,10);
+    return suDate && inPeriod(suDate);
+  }).length;
   const pag = base.filter(r => byPayment(r) && r.etapa === 'Pagamento Recebido').length;
   const agendadasNoPeriodo = base.filter(byScheduled);
-  const realDessas = agendadasNoPeriodo.filter(r => r.ultima_interacao === 'Reunião').length;
+  const realDessas = agendadasNoPeriodo.filter(r => {
+    if (r.ultima_interacao === 'Reunião') return true;
+    const n = novoMap[String(r.id_bitrix)] || {};
+    return !!((n['[Show-up] Data entrada'])||'').trim();
+  }).length;
   const showUpRate = ag > 0 ? realDessas / ag : NaN;
   const noShowRate = ag > 0 ? 1 - showUpRate : NaN;
   const convGlobal = leads > 0 ? pag / leads : NaN;
@@ -2704,47 +2715,52 @@ function ligChart(id, atendeu, nao, caixa, pendente) {
 function renderNovoDash() {
   if (!Object.keys(novoMap).length) return;
 
-  const recs = inPeriod
-    ? flowRecords.filter(r => r.criado_em && inPeriod(r.criado_em) && (!selectedHunter || r.responsavel === selectedHunter))
-    : flowRecords;
+  // Base de records (com filtro de hunter)
+  const base = flowRecords.filter(r => !selectedHunter || r.hunter === selectedHunter);
 
   const novo = id => novoMap[String(id)] || {};
   const str  = (r, k) => (r[k]||'').trim();
-  const cnt  = (arr, field, val) => arr.filter(r => str(novo(r.id_bitrix), field) === val).length;
 
-  // ── ABANDONO ──────────────────────────────────────────────────────────
-  const abEntrada = recs.filter(r => str(novo(r.id_bitrix), '[Abandono] Data entrada'));
-  const abTemplEnv = recs.filter(r => str(novo(r.id_bitrix), '[Abandono] Template Enviado'));
-  const abAgendar = recs.filter(r => str(novo(r.id_bitrix), '[Abandono] Resposta Botão') === 'Agendar Reunião');
-  const abInteresse = recs.filter(r => str(novo(r.id_bitrix), '[Abandono] Resposta Botão') === 'Não tenho interesse');
-  const abRespondeu = recs.filter(r => str(novo(r.id_bitrix), '[Abandono] Respondeu') === 'Sim');
-  const abVirouAgenda = abAgendar.filter(r => r.dt_apresentacao);
+  // Filtro por data da ETAPA (não criado_em)
+  const stageRecs = (dateField) => base.filter(r => {
+    const d = str(novo(r.id_bitrix), dateField).slice(0, 10);
+    return d && inPeriod(d);
+  });
+
+  // Contagem de um valor em campo do novoMap dentro de um array
+  const cnt = (arr, field, val) => arr.filter(r => str(novo(r.id_bitrix), field) === val).length;
+
+  // Ligação pendente — snapshot estado atual (sem filtro de período)
+  const ligPend = cnt(base, '[Geral] Ligação Pendente', 'Pendente');
+
+  // ── ABANDONO ── filtrado por [Abandono] Data entrada no período ─────────
+  const abRecs     = stageRecs('[Abandono] Data entrada');
+  const abTemplEnv = abRecs.filter(r => str(novo(r.id_bitrix), '[Abandono] Template Enviado'));
+  const abAgendar  = abRecs.filter(r => str(novo(r.id_bitrix), '[Abandono] Resposta Botão') === 'Agendar Reunião');
+  const abInteresse= abRecs.filter(r => str(novo(r.id_bitrix), '[Abandono] Resposta Botão') === 'Não tenho interesse');
+  const abRespondeu= abRecs.filter(r => str(novo(r.id_bitrix), '[Abandono] Respondeu') === 'Sim');
+  const abVirou    = abAgendar.filter(r => r.dt_apresentacao);
   const el = document.getElementById('ab-mks');
   if (el) el.innerHTML =
     mkCard('Templates enviados', abTemplEnv.length, 'tl') +
     mkCard('Clicou "Agendar"', `${abAgendar.length} (${abTemplEnv.length>0?(abAgendar.length/abTemplEnv.length*100).toFixed(0)+'%':'0%'})`, 'gr') +
-    mkCard('Virou agenda', `${abVirouAgenda.length}`, 'gr') +
+    mkCard('Virou agenda', abVirou.length, 'gr') +
     mkCard('Sem interesse', abInteresse.length, 'rd') +
     mkCard('Respondeu', abRespondeu.length, 'tl');
 
-  // Pizza abandono
   const chAbPie = freshChart('ch-ab-pie');
   if (chAbPie) {
-    const silencio = abTemplEnv.length - abAgendar.length - abInteresse.length;
-    chAbPie.setOption({ tooltip:{trigger:'item'},
-      series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
-        data:[
-          {value:abAgendar.length, name:'Agendar', itemStyle:{color:'#059669'}},
-          {value:abInteresse.length, name:'Sem interesse', itemStyle:{color:'#dc2626'}},
-          {value:Math.max(0,silencio), name:'Silêncio', itemStyle:{color:'#94a3b8'}},
-        ]
-      }]
-    });
+    const silencio = abRecs.length - abAgendar.length - abInteresse.length;
+    chAbPie.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
+      data:[
+        {value:abAgendar.length, name:'Agendar', itemStyle:{color:'#059669'}},
+        {value:abInteresse.length, name:'Sem interesse', itemStyle:{color:'#dc2626'}},
+        {value:Math.max(0,silencio), name:'Silêncio', itemStyle:{color:'#94a3b8'}},
+      ]
+    }]});
   }
-
-  // Templates abandono (barras)
   const tmplCounts = {};
-  for (const r of abTemplEnv) {
+  for (const r of abRecs) {
     const t = str(novo(r.id_bitrix), '[Abandono] Template Enviado');
     if (t) tmplCounts[t] = (tmplCounts[t]||0) + 1;
   }
@@ -2761,66 +2777,61 @@ function renderNovoDash() {
     });
   }
 
-  // ── CA S1 ─────────────────────────────────────────────────────────────
-  const s1Disp = recs.filter(r => str(novo(r.id_bitrix), '[CA-S1] Disparo Imediato'));
-  const s1Resp = cnt(recs, '[CA-S1] Respondeu', 'Sim');
-  const s1At   = cnt(recs, '[CA-S1] Resultado Ligação', 'Atendeu');
-  const s1Nao  = cnt(recs, '[CA-S1] Resultado Ligação', 'Não atendeu');
-  const s1Cx   = cnt(recs, '[CA-S1] Resultado Ligação', 'Caixa Postal');
+  // ── CA S1 ── filtrado por [CA-S1] Disparo Imediato no período ──────────
+  const s1Recs = stageRecs('[CA-S1] Disparo Imediato');
+  const s1Resp = cnt(s1Recs, '[CA-S1] Respondeu', 'Sim');
+  const s1At   = cnt(s1Recs, '[CA-S1] Resultado Ligação', 'Atendeu');
+  const s1Nao  = cnt(s1Recs, '[CA-S1] Resultado Ligação', 'Não atendeu');
+  const s1Cx   = cnt(s1Recs, '[CA-S1] Resultado Ligação', 'Caixa Postal');
   const el1 = document.getElementById('s1-mks');
-  if (el1) el1.innerHTML = mkCard('Disparos', s1Disp.length, 'tl') + mkCard('Respondeu', s1Resp, 'gr');
+  if (el1) el1.innerHTML = mkCard('Disparos', s1Recs.length, 'tl') + mkCard('Respondeu', s1Resp, 'gr');
   ligChart('ch-s1-lig', s1At, s1Nao, s1Cx);
 
-  // ── CA S2 ─────────────────────────────────────────────────────────────
-  const s2D0   = recs.filter(r => str(novo(r.id_bitrix), '[CA-S2] Disparo Imediato'));
-  const s2D1   = recs.filter(r => str(novo(r.id_bitrix), '[CA-S2] Disparo D+1'));
-  const s2Resp = cnt(recs, '[CA-S2] Respondeu', 'Sim');
-  const s2At   = cnt(recs, '[CA-S2] Resultado Ligação', 'Atendeu');
-  const s2Nao  = cnt(recs, '[CA-S2] Resultado Ligação', 'Não atendeu');
-  const s2Cx   = cnt(recs, '[CA-S2] Resultado Ligação', 'Caixa Postal');
-  const ligPend= cnt(recs, '[Geral] Ligação Pendente', 'Pendente');
+  // ── CA S2 ── filtrado por [CA-S2] Disparo Imediato no período ──────────
+  const s2Recs = stageRecs('[CA-S2] Disparo Imediato');
+  const s2D1   = s2Recs.filter(r => str(novo(r.id_bitrix), '[CA-S2] Disparo D+1'));
+  const s2Resp = cnt(s2Recs, '[CA-S2] Respondeu', 'Sim');
+  const s2At   = cnt(s2Recs, '[CA-S2] Resultado Ligação', 'Atendeu');
+  const s2Nao  = cnt(s2Recs, '[CA-S2] Resultado Ligação', 'Não atendeu');
+  const s2Cx   = cnt(s2Recs, '[CA-S2] Resultado Ligação', 'Caixa Postal');
   const el2 = document.getElementById('s2-mks');
-  if (el2) el2.innerHTML = mkCard('D0', s2D0.length, 'nv') + mkCard('D+1', s2D1.length, 'nv') + mkCard('Respondeu', s2Resp, 'gr') + mkCard('Lig. Pendente', ligPend, 'or');
+  if (el2) el2.innerHTML = mkCard('D0', s2Recs.length, 'nv') + mkCard('D+1', s2D1.length, 'nv') + mkCard('Respondeu', s2Resp, 'gr') + mkCard('Lig. Pendente', ligPend, 'or');
   ligChart('ch-s2-lig', s2At, s2Nao, s2Cx, ligPend);
 
-  // ── CA S3 ─────────────────────────────────────────────────────────────
-  const s3D0  = recs.filter(r => str(novo(r.id_bitrix), '[CA-S3] Disparo Imediato'));
-  const s3D2  = recs.filter(r => str(novo(r.id_bitrix), '[CA-S3] Disparo D+2'));
-  const s3At  = cnt(recs, '[CA-S3] Resultado Ligação', 'Atendeu');
-  const s3Nao = cnt(recs, '[CA-S3] Resultado Ligação', 'Não atendeu');
-  const s3Cx  = cnt(recs, '[CA-S3] Resultado Ligação', 'Caixa Postal');
+  // ── CA S3 ── filtrado por [CA-S3] Disparo Imediato no período ──────────
+  const s3Recs = stageRecs('[CA-S3] Disparo Imediato');
+  const s3D2   = s3Recs.filter(r => str(novo(r.id_bitrix), '[CA-S3] Disparo D+2'));
+  const s3At   = cnt(s3Recs, '[CA-S3] Resultado Ligação', 'Atendeu');
+  const s3Nao  = cnt(s3Recs, '[CA-S3] Resultado Ligação', 'Não atendeu');
+  const s3Cx   = cnt(s3Recs, '[CA-S3] Resultado Ligação', 'Caixa Postal');
   const el3 = document.getElementById('s3-mks');
-  if (el3) el3.innerHTML = mkCard('D0', s3D0.length, 'or') + mkCard('D+2', s3D2.length, 'or');
+  if (el3) el3.innerHTML = mkCard('D0', s3Recs.length, 'or') + mkCard('D+2', s3D2.length, 'or');
   ligChart('ch-s3-lig', s3At, s3Nao, s3Cx);
 
-  // ── REUNIÃO (stage 4) ────────────────────────────────────────────────
-  const agendadas = recs.filter(r => r.dt_reuniao_agendada || r.dt_apresentacao);
-  const realizadas = recs.filter(r => {
-    const n = novo(r.id_bitrix);
-    return str(n,'[Show-up] Data entrada') || r.ultima_interacao === 'Reunião';
+  // ── REUNIÃO (stage 4) ── filtrado por dt_apresentacao no período ────────
+  // Usa dt_apresentacao (igual ao KPI "Agendadas")
+  const reuRecs    = base.filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
+  const reuRealizadas = reuRecs.filter(r => {
+    if (r.ultima_interacao === 'Reunião') return true;
+    return !!str(novo(r.id_bitrix), '[Show-up] Data entrada');
   });
-  const noshow = agendadas.filter(r => {
-    const n = novo(r.id_bitrix);
-    return str(n,'[CA-S3] Disparo Imediato'); // S3 ativado = foi no-show
-  });
-  const showPct = agendadas.length > 0 ? (realizadas.length / agendadas.length * 100).toFixed(1) : '0';
-  const nsPct  = agendadas.length > 0 ? (noshow.length   / agendadas.length * 100).toFixed(1) : '0';
+  const reuNoshow  = reuRecs.filter(r => str(novo(r.id_bitrix), '[CA-S3] Disparo Imediato'));
+  const showPct    = reuRecs.length > 0 ? (reuRealizadas.length / reuRecs.length * 100).toFixed(1) : '0';
+  const nsPct      = reuRecs.length > 0 ? (reuNoshow.length    / reuRecs.length * 100).toFixed(1) : '0';
   const elReu = document.getElementById('reuniao-mks');
   if (elReu) elReu.innerHTML =
-    mkCard('Agendadas', agendadas.length, 'nv') +
-    mkCard(`Realizadas (${showPct}%)`, realizadas.length, 'gr') +
-    mkCard(`No-show (${nsPct}%)`, noshow.length, 'rd');
-  // Gráfico agendadas por hunter
+    mkCard('Agendadas', reuRecs.length, 'nv') +
+    mkCard(`Realizadas (${showPct}%)`, reuRealizadas.length, 'gr') +
+    mkCard(`No-show (${nsPct}%)`, reuNoshow.length, 'rd');
   const chReu = freshChart('ch-reuniao');
   if (chReu) {
-    const agByH  = {}, rlByH  = {}, nsH = {};
+    const agByH = {}, rlByH = {}, nsH = {};
     HUNTERS_WHITELIST.forEach(h => { agByH[h]=0; rlByH[h]=0; nsH[h]=0; });
-    for (const r of recs) {
+    for (const r of reuRecs) {
       const h = canonHunter(r.responsavel); if (!h) continue;
-      if (r.dt_reuniao_agendada || r.dt_apresentacao) agByH[h]++;
-      const n = novo(r.id_bitrix);
-      if (str(n,'[Show-up] Data entrada') || r.ultima_interacao === 'Reunião') rlByH[h]++;
-      if (str(n,'[CA-S3] Disparo Imediato')) nsH[h]++;
+      agByH[h]++;
+      if (r.ultima_interacao === 'Reunião' || str(novo(r.id_bitrix),'[Show-up] Data entrada')) rlByH[h]++;
+      if (str(novo(r.id_bitrix),'[CA-S3] Disparo Imediato')) nsH[h]++;
     }
     const hns = HUNTERS_WHITELIST.map(h => h.split(' ')[0]);
     chReu.setOption({
@@ -2829,33 +2840,32 @@ function renderNovoDash() {
       xAxis:{type:'category',data:hns},
       yAxis:{type:'value',minInterval:1},
       series:[
-        {name:'Agendadas',type:'bar',data:HUNTERS_WHITELIST.map(h=>agByH[h]),itemStyle:{color:'#003462'},barWidth:'25%'},
+        {name:'Agendadas', type:'bar',data:HUNTERS_WHITELIST.map(h=>agByH[h]),itemStyle:{color:'#003462'},barWidth:'25%'},
         {name:'Realizadas',type:'bar',data:HUNTERS_WHITELIST.map(h=>rlByH[h]),itemStyle:{color:'#059669'},barWidth:'25%'},
-        {name:'No-show',type:'bar',data:HUNTERS_WHITELIST.map(h=>nsH[h]),itemStyle:{color:'#dc2626'},barWidth:'25%'},
+        {name:'No-show',   type:'bar',data:HUNTERS_WHITELIST.map(h=>nsH[h]),  itemStyle:{color:'#dc2626'},barWidth:'25%'},
       ]
     });
     setTimeout(() => chReu.resize(), 100);
   }
 
-  // ── SHOW-UP (stage 5) ────────────────────────────────────────────────
-  const suRecs = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Data entrada') || r.ultima_interacao === 'Reunião');
-  const suM1   = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M1'));
-  const suM2   = recs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M2'));
-  const suLigAt = cnt(recs,'[Show-up] Resultado Ligação','Atendeu');
-  const suLigN  = cnt(recs,'[Show-up] Resultado Ligação','Não atendeu');
-  const suLigC  = cnt(recs,'[Show-up] Resultado Ligação','Caixa Postal');
+  // ── SHOW-UP (stage 5) ── filtrado por [Show-up] Data entrada no período ──
+  const suRecs = stageRecs('[Show-up] Data entrada');
+  const suM1   = suRecs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M1'));
+  const suM2   = suRecs.filter(r => str(novo(r.id_bitrix), '[Show-up] Disparo M2'));
+  const suAt   = cnt(suRecs, '[Show-up] Resultado Ligação', 'Atendeu');
+  const suNao  = cnt(suRecs, '[Show-up] Resultado Ligação', 'Não atendeu');
+  const suCx   = cnt(suRecs, '[Show-up] Resultado Ligação', 'Caixa Postal');
   const elSu = document.getElementById('showup-mks');
   if (elSu) elSu.innerHTML =
     mkCard('Total Show-up', suRecs.length, 'gr') +
     mkCard('M1 enviado', suM1.length, 'tl') +
     mkCard('M2 enviado', suM2.length, 'tl') +
     mkCard('Lig. pendentes', ligPend, 'or');
-
-  // Reutiliza gráficos já existentes no DOM para show-up por horário/hunter/dia
+  ligChart('ch-su-lig', suAt, suNao, suCx);
   const renderShowChartById = (id, origId) => {
     const orig = document.getElementById(origId);
     const dest = document.getElementById(id);
-    if (!dest) return;
+    if (!dest || !orig) return;
     const origInst = echarts.getInstanceByDom(orig);
     if (origInst) {
       const ch2 = freshChart(id);
@@ -2866,22 +2876,18 @@ function renderNovoDash() {
     renderShowChartById('ch-show-horario-v2', 'c-show-horario');
     renderShowChartById('ch-show-hunter-v2', 'c-show-hunter');
     renderShowChartById('ch-show-dia-v2', 'c-show-dia');
-  }, 200);
-
-  ligChart('ch-su-lig', suLigAt, suLigN, suLigC);
+  }, 300);
   // M1/M2 por dia
   const chSuM = freshChart('ch-su-m');
   if (chSuM) {
     const m1ByDay = {}, m2ByDay = {};
-    for (const r of recs) {
+    for (const r of suRecs) {
       const n = novo(r.id_bitrix);
-      const d1 = str(n,'[Show-up] Disparo M1');
-      const d2 = str(n,'[Show-up] Disparo M2');
-      if (d1) { const k = d1.slice(0,10); m1ByDay[k] = (m1ByDay[k]||0)+1; }
-      if (d2) { const k = d2.slice(0,10); m2ByDay[k] = (m2ByDay[k]||0)+1; }
+      const d1 = str(n,'[Show-up] Disparo M1'); if (d1) { const k=d1.slice(0,10); m1ByDay[k]=(m1ByDay[k]||0)+1; }
+      const d2 = str(n,'[Show-up] Disparo M2'); if (d2) { const k=d2.slice(0,10); m2ByDay[k]=(m2ByDay[k]||0)+1; }
     }
     const dias = [...new Set([...Object.keys(m1ByDay),...Object.keys(m2ByDay)])].sort();
-    chSuM.setOption({
+    if (dias.length) chSuM.setOption({
       tooltip:{trigger:'axis'}, legend:{bottom:0},
       grid:{left:'5%',right:'5%',bottom:'20%',top:'5%',containLabel:true},
       xAxis:{type:'category',data:dias.map(d=>d.slice(5)),axisLabel:{fontSize:9}},
@@ -2894,48 +2900,39 @@ function renderNovoDash() {
     setTimeout(() => chSuM.resize(), 100);
   }
 
-  // ── INTERAÇÃO (stage 6) ───────────────────────────────────────────────
-  const inRecs = recs.filter(r => str(novo(r.id_bitrix),'[Interação] Data entrada') || r.dt_interacao);
-  const inM1   = recs.filter(r => str(novo(r.id_bitrix),'[Interação] Disparo M1'));
+  // ── INTERAÇÃO (stage 6) ── filtrado por [Interação] Data entrada no período
+  const inRecs2 = stageRecs('[Interação] Data entrada');
+  const inM1    = inRecs2.filter(r => str(novo(r.id_bitrix), '[Interação] Disparo M1'));
   const elIn = document.getElementById('interacao-mks');
-  if (elIn) elIn.innerHTML = mkCard('Total Interação', inRecs.length, 'pu') + mkCard('M1 disparado', inM1.length, 'tl');
-  setTimeout(() => renderShowChartById('ch-interacoes-hunter-v2', 'c-interacoes-hunter'), 200);
+  if (elIn) elIn.innerHTML = mkCard('Total Interação', inRecs2.length, 'pu') + mkCard('M1 disparado', inM1.length, 'tl');
+  setTimeout(() => renderShowChartById('ch-interacoes-hunter-v2', 'c-interacoes-hunter'), 300);
 
-  // ── NEGOCIAÇÃO QUENTE ─────────────────────────────────────────────────
-  const ngRecs = recs.filter(r => str(novo(r.id_bitrix), '[NG] Data entrada'));
-  const ngLink = cnt(recs, '[NG] Motivo', 'Link de pagamento enviado');
-  const ngFut  = cnt(recs, '[NG] Motivo', 'Lead deseja contato futuro');
-  const ngAt   = cnt(recs, '[NG] Resultado Ligação', 'Atendeu');
-  const ngNao  = cnt(recs, '[NG] Resultado Ligação', 'Não atendeu');
-  const ngCx   = cnt(recs, '[NG] Resultado Ligação', 'Caixa Postal');
+  // ── NG (stage 7) ── filtrado por [NG] Data entrada no período ───────────
+  const ngRecs  = stageRecs('[NG] Data entrada');
+  const ngLink  = cnt(ngRecs, '[NG] Motivo', 'Link de pagamento enviado');
+  const ngFut   = cnt(ngRecs, '[NG] Motivo', 'Lead deseja contato futuro');
+  const ngAt    = cnt(ngRecs, '[NG] Resultado Ligação', 'Atendeu');
+  const ngNao   = cnt(ngRecs, '[NG] Resultado Ligação', 'Não atendeu');
+  const ngCx    = cnt(ngRecs, '[NG] Resultado Ligação', 'Caixa Postal');
   const elNg = document.getElementById('ng-mks');
   if (elNg) elNg.innerHTML =
     mkCard('Total NG', ngRecs.length, 'or') +
     mkCard('Link enviado', `${ngLink} (${ngRecs.length>0?(ngLink/ngRecs.length*100).toFixed(0)+'%':'0%'})`, 'or') +
     mkCard('Contato futuro', ngFut, '');
-  // Pizza NG motivo
   const chNgMot = freshChart('ch-ng-motivo');
-  if (chNgMot) chNgMot.setOption({ tooltip:{trigger:'item'},
-    series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
-      data:[
-        {value:ngLink, name:'Link enviado', itemStyle:{color:'#d97706'}},
-        {value:ngFut, name:'Contato futuro', itemStyle:{color:'#94a3b8'}},
-      ]
-    }]
-  });
+  if (chNgMot) chNgMot.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
+    data:[
+      {value:ngLink, name:'Link enviado',   itemStyle:{color:'#d97706'}},
+      {value:ngFut,  name:'Contato futuro', itemStyle:{color:'#94a3b8'}},
+    ]
+  }]});
   ligChart('ch-ng-lig', ngAt, ngNao, ngCx);
 
-  // ── IMPACTO LIGAÇÕES ─────────────────────────────────────────────────
-  const pagRecs = recs.filter(r => r.dt_pagamento);
+  // ── IMPACTO LIGAÇÕES e API OFICIAL ─────────────────────────────────────
+  const pagRecs = base.filter(r => r.dt_pagamento && inPeriod(r.dt_pagamento));
   const ligFields = ['[CA-S1] Resultado Ligação','[CA-S2] Resultado Ligação','[CA-S3] Resultado Ligação','[Show-up] Resultado Ligação','[NG] Resultado Ligação'];
-  const pagComLig = pagRecs.filter(r => {
-    const n = novo(r.id_bitrix);
-    return ligFields.some(f => str(n,f) === 'Atendeu');
-  });
-  const pagComApi = pagRecs.filter(r => {
-    const n = novo(r.id_bitrix);
-    return str(n,'[CA-S2] Disparo Imediato') || str(n,'[Abandono] Template Enviado');
-  });
+  const pagComLig = pagRecs.filter(r => ligFields.some(f => str(novo(r.id_bitrix),f) === 'Atendeu'));
+  const pagComApi = pagRecs.filter(r => str(novo(r.id_bitrix),'[CA-S2] Disparo Imediato') || str(novo(r.id_bitrix),'[Abandono] Template Enviado'));
   const ticket = getTicketMedioReal();
   const elLigMks = document.getElementById('lig-conv-mks');
   if (elLigMks) elLigMks.innerHTML =
@@ -2947,8 +2944,6 @@ function renderNovoDash() {
     mkCard('Pagamentos totais', pagRecs.length, 'nv') +
     mkCard('Receberam API Oficial', `${pagComApi.length} (${pagRecs.length>0?(pagComApi.length/pagRecs.length*100).toFixed(0)+'%':'0%'})`, 'nv') +
     mkCard('Receita recuperada', fmtMoney(pagComApi.length * ticket), 'gr');
-
-  // Pizza conversões com ligação
   const chLigConv = freshChart('ch-lig-conv');
   if (chLigConv) chLigConv.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
     data:[{value:pagComLig.length,name:'Com ligação',itemStyle:{color:'#059669'}},{value:pagRecs.length-pagComLig.length,name:'Sem ligação',itemStyle:{color:'#e2e8f0'}}]
@@ -2957,34 +2952,31 @@ function renderNovoDash() {
   if (chApiConv) chApiConv.setOption({ tooltip:{trigger:'item'}, series:[{type:'pie', radius:['40%','70%'], label:{fontSize:9},
     data:[{value:pagComApi.length,name:'Via API Oficial',itemStyle:{color:'#003462'}},{value:pagRecs.length-pagComApi.length,name:'Outros',itemStyle:{color:'#e2e8f0'}}]
   }]});
-
-  // Ligações por hunter
   const chLigH = freshChart('ch-lig-hunter');
   if (chLigH) {
     const pendByH = {}, realByH = {};
-    HUNTERS_WHITELIST.forEach(h => { pendByH[h] = 0; realByH[h] = 0; });
-    for (const r of recs) {
-      const h = canonHunter(r.responsavel);
-      if (!h) continue;
+    HUNTERS_WHITELIST.forEach(h => { pendByH[h]=0; realByH[h]=0; });
+    for (const r of base) {
+      const h = canonHunter(r.responsavel); if (!h) continue;
       const n = novo(r.id_bitrix);
       if (str(n,'[Geral] Ligação Pendente') === 'Pendente') pendByH[h]++;
-      const fez = ligFields.some(f => ['Atendeu','Não atendeu','Caixa Postal'].includes(str(n,f)));
-      if (fez) realByH[h]++;
+      if (ligFields.some(f => ['Atendeu','Não atendeu','Caixa Postal'].includes(str(n,f)))) realByH[h]++;
     }
     const hns = HUNTERS_WHITELIST.map(h => h.split(' ')[0]);
     chLigH.setOption({
-      tooltip:{trigger:'axis'},
-      legend:{bottom:0,data:['Pendentes','Realizadas']},
+      tooltip:{trigger:'axis'}, legend:{bottom:0,data:['Pendentes','Realizadas']},
       grid:{left:'5%',right:'5%',bottom:'15%',top:'10%',containLabel:true},
       xAxis:{type:'category',data:hns},
       yAxis:{type:'value',minInterval:1},
       series:[
-        {name:'Pendentes',type:'bar',data:HUNTERS_WHITELIST.map(h=>pendByH[h]),itemStyle:{color:'#f59e0b'},barWidth:'30%'},
+        {name:'Pendentes', type:'bar',data:HUNTERS_WHITELIST.map(h=>pendByH[h]),itemStyle:{color:'#f59e0b'},barWidth:'30%'},
         {name:'Realizadas',type:'bar',data:HUNTERS_WHITELIST.map(h=>realByH[h]),itemStyle:{color:'#059669'},barWidth:'30%'},
       ]
     });
+    setTimeout(() => chLigH.resize(), 100);
   }
 }
+
 
 // ═══════════════════════════════════════════════════
 // ACOMPANHAMENTO — funções de render
