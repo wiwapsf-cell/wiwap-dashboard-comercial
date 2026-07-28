@@ -291,26 +291,28 @@ function ligChart(id,label,a,na,cx,pend){
 function renderStage3(){
   // S1
   const s1=stageRecs('[CA-S1] Disparo Imediato');
-  const s1nut=cnt(s1,'[CA-S1] Resultado Ligação','Não atendeu'); // aprox → nutrição
+  const s1nut=s1.filter(r=>r.etapa==='Nutrição').length;
   setTxt('ca-s1-disp',fmt(s1.length));
-  setTxt('ca-s1-nut',fmt(s1.filter(r=>nstr(novo(r.id_bitrix),'[CA-S1] Respondeu')!=='Sim').length));
+  setTxt('ca-s1-nut',fmt(s1nut));
   ligChart('ch-s1','CA S1',cnt(s1,'[CA-S1] Resultado Ligação','Atendeu'),cnt(s1,'[CA-S1] Resultado Ligação','Não atendeu'),cnt(s1,'[CA-S1] Resultado Ligação','Caixa Postal'),undefined);
   // S2
   const s2=stageRecs('[CA-S2] Disparo Imediato');
   const s2d1=s2.filter(r=>nstr(novo(r.id_bitrix),'[CA-S2] Disparo D+1')).length;
   const s2resp=cnt(s2,'[CA-S2] Respondeu','Sim');
+  const s2nut=s2.filter(r=>r.etapa==='Nutrição'||nstr(novo(r.id_bitrix),'[Abandono] Resposta Botão')==='Não tenho interesse').length;
   let ligPendGlobal=0; for(const r of flowRecords.filter(byHunter))if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPendGlobal++;
   setTxt('ca-s2-d0',fmt(s2.length));
   setTxt('ca-s2-d1',fmt(s2d1));
   setTxt('ca-s2-resp',fmt(s2resp));
-  setTxt('ca-s2-nut',fmt(s2.length-s2resp));
+  setTxt('ca-s2-nut',fmt(s2nut));
   ligChart('ch-s2','CA S2',cnt(s2,'[CA-S2] Resultado Ligação','Atendeu'),cnt(s2,'[CA-S2] Resultado Ligação','Não atendeu'),cnt(s2,'[CA-S2] Resultado Ligação','Caixa Postal'),ligPendGlobal);
   // S3
   const s3=stageRecs('[CA-S3] Disparo Imediato');
   const s3d2=s3.filter(r=>nstr(novo(r.id_bitrix),'[CA-S3] Disparo D+2')).length;
+  const s3nut=s3.filter(r=>r.etapa==='Nutrição').length;
   setTxt('ca-s3-d0',fmt(s3.length));
   setTxt('ca-s3-d2',fmt(s3d2));
-  setTxt('ca-s3-nut',fmt(s3.length));
+  setTxt('ca-s3-nut',fmt(s3nut));
   ligChart('ch-s3','CA S3',cnt(s3,'[CA-S3] Resultado Ligação','Atendeu'),cnt(s3,'[CA-S3] Resultado Ligação','Não atendeu'),cnt(s3,'[CA-S3] Resultado Ligação','Caixa Postal'),undefined);
 }
 
