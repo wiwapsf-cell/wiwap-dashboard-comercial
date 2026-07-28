@@ -105,10 +105,6 @@ function renderKPIs(){
   const agRecs=base.filter(r=>inPeriod(r.dt_apresentacao));
   const ag=agRecs.length;
 
-  // DEBUG — remover após diagnóstico
-  console.log('agRecs IDs:', agRecs.map(r=>r.id_bitrix));
-  console.log('novoMap keys (amostra):', Object.keys(novoMap).slice(0,5));
-  console.log('Show-up values:', agRecs.map(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada')));
   // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada preenchido (qualquer data)
   const realRecs=agRecs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
   const real=realRecs.length;
@@ -178,31 +174,58 @@ function renderStage1(){
   const base=flowRecords.filter(byHunter);
   const recebidos=base.filter(r=>inPeriod(r.criado_em));
   const agend=recebidos.filter(r=>r.dt_apresentacao);
-  // Abandono (sem resposta): entrou em Abandono e não agendou
   const aband=recebidos.filter(r=>{const n=novo(r.id_bitrix);return nstr(n,'[Abandono] Data entrada')&&!r.dt_apresentacao;});
   setTxt('s1-total',fmt(recebidos.length));
   setTxt('s1-agend',`${agend.length} (${fmtPct(recebidos.length?agend.length/recebidos.length:0)})`);
   setTxt('s1-aband',`${aband.length} (${fmtPct(recebidos.length?aband.length/recebidos.length:0)})`);
-  // Gráfico: por dia da semana (Seg-Sex) — Recebidos, Agendados, No-show%
-  const dowR=[0,0,0,0,0],dowA=[0,0,0,0,0],dowNs=[0,0,0,0,0];
-  for(const r of recebidos){const d=new Date(r.criado_em+'T12:00:00').getDay();if(d>=1&&d<=5){dowR[d-1]++;if(r.dt_apresentacao)dowA[d-1]++;}}
-  // no-show% por dia da semana da apresentação
-  const nsTot=[0,0,0,0,0],nsNo=[0,0,0,0,0];
-  for(const r of base.filter(r=>inPeriod(r.dt_apresentacao))){
-    const d=new Date(r.dt_apresentacao+'T12:00:00').getDay(); if(d<1||d>5)continue;
-    nsTot[d-1]++; const compareceu=r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada'); if(!compareceu)nsNo[d-1]++;
+
+  // Gráfico por data (com barra deslizante)
+  // Agrega por dia: Recebidos (criado_em), Agendados (dt_apresentacao), No-show%
+  const{start,end}=computeRange();
+  const dayMap={};
+  // Inicializa todos os dias do período
+  for(let d=new Date(start+'T12:00:00');d.toISOString().slice(0,10)<=end;d.setDate(d.getDate()+1)){
+    const k=d.toISOString().slice(0,10);
+    dayMap[k]={rec:0,ag:0,agTot:0,noshow:0};
   }
-  for(let i=0;i<5;i++)dowNs[i]=nsTot[i]>0?+(nsNo[i]/nsTot[i]*100).toFixed(1):0;
+  // Recebidos por dia de criação
+  for(const r of recebidos){
+    if(dayMap[r.criado_em])dayMap[r.criado_em].rec++;
+  }
+  // Agendados e No-show por dia de apresentação
+  for(const r of base.filter(r=>r.dt_apresentacao&&inPeriod(r.dt_apresentacao))){
+    if(!dayMap[r.dt_apresentacao])continue;
+    dayMap[r.dt_apresentacao].agTot++;
+    if(r.dt_apresentacao)dayMap[r.dt_apresentacao].ag++;
+    const compareceu=nstr(novo(r.id_bitrix),'[Show-up] Data entrada');
+    if(!compareceu)dayMap[r.dt_apresentacao].noshow++;
+  }
+  const dias=Object.keys(dayMap).sort();
+  const recArr=dias.map(d=>dayMap[d].rec);
+  const agArr=dias.map(d=>dayMap[d].ag);
+  const nsArr=dias.map(d=>dayMap[d].agTot>0?+(dayMap[d].noshow/dayMap[d].agTot*100).toFixed(1):null);
+  const labels=dias.map(d=>d.slice(5).split('-').reverse().join('/'));
+
   const chart=ec('ch-novos'); if(!chart)return;
   chart.setOption({
-    tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
-    grid:{top:16,right:44,bottom:36,left:36},
-    xAxis:{type:'category',data:['Seg','Ter','Qua','Qui','Sex'],axisLabel:{...AX}},
-    yAxis:[{type:'value',axisLabel:{...AX},splitLine:{lineStyle:{color:'#f1f5f9'}}},{type:'value',max:100,axisLabel:{...AX,formatter:'{value}%'},splitLine:{show:false}}],
+    tooltip:{trigger:'axis',...TP},
+    legend:{bottom:28,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
+    dataZoom:[
+      {type:'slider',bottom:0,height:18,start:Math.max(0,100-Math.round(21/dias.length*100)),end:100,
+       borderColor:'#e2e8f0',fillerColor:'rgba(0,160,163,0.1)',handleStyle:{color:TL}},
+      {type:'inside'}
+    ],
+    grid:{top:16,right:44,bottom:72,left:36},
+    xAxis:{type:'category',data:labels,axisLabel:{...AX,fontSize:9,rotate:dias.length>20?30:0}},
+    yAxis:[
+      {type:'value',axisLabel:{...AX},splitLine:{lineStyle:{color:'#f1f5f9'}}},
+      {type:'value',max:100,axisLabel:{...AX,formatter:'{value}%'},splitLine:{show:false}}
+    ],
     series:[
-      {name:'Recebidos',type:'bar',barGap:'8%',data:dowR,itemStyle:{color:TL2,borderRadius:[4,4,0,0]}},
-      {name:'Agendados',type:'bar',data:dowA,itemStyle:{color:NV,borderRadius:[4,4,0,0]}},
-      {name:'No-show %',type:'line',yAxisIndex:1,smooth:true,data:dowNs,lineStyle:{color:RD,width:2},itemStyle:{color:RD},symbol:'circle',symbolSize:5},
+      {name:'Recebidos',type:'bar',barGap:'8%',data:recArr,itemStyle:{color:TL2,borderRadius:[3,3,0,0]},barMaxWidth:20},
+      {name:'Agendados',type:'bar',data:agArr,itemStyle:{color:NV,borderRadius:[3,3,0,0]},barMaxWidth:20},
+      {name:'No-show %',type:'line',yAxisIndex:1,smooth:true,connectNulls:false,data:nsArr,
+       lineStyle:{color:RD,width:2},itemStyle:{color:RD},symbol:'circle',symbolSize:5},
     ]
   });
 }
