@@ -105,13 +105,12 @@ function renderKPIs(){
   const agRecs=base.filter(r=>inPeriod(r.dt_apresentacao));
   const ag=agRecs.length;
 
-  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada no período
-  const realRecs=agRecs.filter(r=>{
-    const raw=nstr(novo(r.id_bitrix),'[Show-up] Data entrada');
-    if(!raw)return false;
-    const d=parseDateBR(raw);
-    return d&&inPeriod(d);
-  });
+  // DEBUG — remover após diagnóstico
+  console.log('agRecs IDs:', agRecs.map(r=>r.id_bitrix));
+  console.log('novoMap keys (amostra):', Object.keys(novoMap).slice(0,5));
+  console.log('Show-up values:', agRecs.map(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada')));
+  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada preenchido (qualquer data)
+  const realRecs=agRecs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
   const real=realRecs.length;
 
   // No-show = das agendadas no período, quantas NÃO têm [Show-up] Data entrada
@@ -159,14 +158,8 @@ function renderFunil(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
   const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  // Realizadas = agendadas no período com [Show-up] Data entrada no período
-  const real=base.filter(r=>{
-    if(!inPeriod(r.dt_apresentacao))return false;
-    const raw=nstr(novo(r.id_bitrix),'[Show-up] Data entrada');
-    if(!raw)return false;
-    const d=parseDateBR(raw);
-    return d&&inPeriod(d);
-  }).length;
+  // Realizadas = agendadas no período com [Show-up] Data entrada preenchido
+  const real=base.filter(r=>inPeriod(r.dt_apresentacao)&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const chart=ec('ch-funil'); if(!chart)return;
   const denom=leads||1;
