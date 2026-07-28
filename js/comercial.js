@@ -65,7 +65,12 @@ const novo=id=>novoMap[String(id)]||{};
 const nstr=(r,k)=>(r[k]||'').trim();
 // registros de uma etapa filtrados pela data DA PRÓPRIA etapa
 function stageRecs(dateField){
-  return flowRecords.filter(r=>{ if(!byHunter(r))return false; const d=nstr(novo(r.id_bitrix),dateField).slice(0,10); return d&&inPeriod(d); });
+  return flowRecords.filter(r=>{
+    if(!byHunter(r))return false;
+    const raw=nstr(novo(r.id_bitrix),dateField);
+    const d=parseDateBR(raw); // converte dd/mm/yyyy HH:MM:SS → yyyy-mm-dd
+    return d&&inPeriod(d);
+  });
 }
 function cnt(arr,field,val){return arr.filter(r=>nstr(novo(r.id_bitrix),field)===val).length;}
 
@@ -100,8 +105,13 @@ function renderKPIs(){
   const agRecs=base.filter(r=>inPeriod(r.dt_apresentacao));
   const ag=agRecs.length;
 
-  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada preenchido
-  const realRecs=agRecs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
+  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada no período
+  const realRecs=agRecs.filter(r=>{
+    const raw=nstr(novo(r.id_bitrix),'[Show-up] Data entrada');
+    if(!raw)return false;
+    const d=parseDateBR(raw);
+    return d&&inPeriod(d);
+  });
   const real=realRecs.length;
 
   // No-show = das agendadas no período, quantas NÃO têm [Show-up] Data entrada
@@ -149,8 +159,14 @@ function renderFunil(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
   const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  // Realizadas = agendadas no período com [Show-up] Data entrada preenchido
-  const real=base.filter(r=>inPeriod(r.dt_apresentacao)&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
+  // Realizadas = agendadas no período com [Show-up] Data entrada no período
+  const real=base.filter(r=>{
+    if(!inPeriod(r.dt_apresentacao))return false;
+    const raw=nstr(novo(r.id_bitrix),'[Show-up] Data entrada');
+    if(!raw)return false;
+    const d=parseDateBR(raw);
+    return d&&inPeriod(d);
+  }).length;
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const chart=ec('ch-funil'); if(!chart)return;
   const denom=leads||1;
