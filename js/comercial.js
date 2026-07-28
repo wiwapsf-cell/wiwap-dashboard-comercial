@@ -322,21 +322,32 @@ function renderStage3(){
 function renderStage4(){
   const base=flowRecords.filter(byHunter);
   const agend=base.filter(r=>inPeriod(r.dt_apresentacao));
-  const real=agend.filter(r=>r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
-  const noshow=agend.filter(r=>!(r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada')));
+  // Realizadas = apenas quem tem [Show-up] Data entrada preenchido
+  const real=agend.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
+  // No-show = agendadas no período com motivo = "Lead marcou reunião, mas não participou (HUNTER)"
+  const noshow=agend.filter(r=>r.motivo_wpp_hunter==='Lead marcou reunião, mas não participou (HUNTER)');
   setTxt('s4-agend',fmt(agend.length));
   setTxt('s4-real',`${real.length} (${fmtPct(agend.length?real.length/agend.length:0)})`);
   setTxt('s4-noshow',`${noshow.length} (${fmtPct(agend.length?noshow.length/agend.length:0)})`);
   // por hunter
   const H=HUNTERS_WHITELIST; const ag={},rl={},ns={}; H.forEach(h=>{ag[h]=0;rl[h]=0;ns[h]=0;});
-  for(const r of agend){const h=canonHunter(r.responsavel);if(!h)continue;ag[h]++;const ok=r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada');if(ok)rl[h]++;else ns[h]++;}
+  for(const r of agend){
+    const h=canonHunter(r.responsavel);if(!h)continue;
+    ag[h]++;
+    if(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))rl[h]++;
+    if(r.motivo_wpp_hunter==='Lead marcou reunião, mas não participou (HUNTER)')ns[h]++;
+  }
   const chart=ec('ch-reuniao'); if(!chart)return;
   chart.setOption({
     tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
     grid:{top:16,right:14,bottom:36,left:36},
     xAxis:{type:'category',data:H.map(h=>h.split(' ')[0]),axisLabel:{...AX}},
     yAxis:{type:'value',axisLabel:{...AX},splitLine:{lineStyle:{color:'#f1f5f9'}}},
-    series:[{name:'Agendadas',type:'bar',barGap:'8%',data:H.map(h=>ag[h]),itemStyle:{color:TL2,borderRadius:[4,4,0,0]}},{name:'Realizadas',type:'bar',data:H.map(h=>rl[h]),itemStyle:{color:NV,borderRadius:[4,4,0,0]}},{name:'No-show',type:'bar',data:H.map(h=>ns[h]),itemStyle:{color:RD,borderRadius:[4,4,0,0]}}]
+    series:[
+      {name:'Agendadas',type:'bar',barGap:'8%',data:H.map(h=>ag[h]),itemStyle:{color:TL2,borderRadius:[4,4,0,0]}},
+      {name:'Realizadas',type:'bar',data:H.map(h=>rl[h]),itemStyle:{color:NV,borderRadius:[4,4,0,0]}},
+      {name:'No-show',type:'bar',data:H.map(h=>ns[h]),itemStyle:{color:RD,borderRadius:[4,4,0,0]}}
+    ]
   });
 }
 
