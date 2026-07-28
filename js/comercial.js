@@ -472,7 +472,9 @@ function renderStage7(){
     tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)',...TP},legend:{bottom:2,textStyle:{fontFamily:F,fontSize:10},itemHeight:9},
     series:[{type:'pie',radius:['40%','68%'],center:['50%','46%'],data:[{value:link,name:'Link de pagamento enviado',itemStyle:{color:OR}},{value:futuro,name:'Deseja contato futuro',itemStyle:{color:AM}}],label:{formatter:'{d}%',fontSize:11,fontFamily:F}}]
   });
-  ligChart('ch-ng-lig','Neg. Quente',cnt(recs,'[NG] Resultado Ligação','Atendeu'),cnt(recs,'[NG] Resultado Ligação','Não atendeu'),cnt(recs,'[NG] Resultado Ligação','Caixa Postal'),undefined);
+  // Ligação pendente = leads com link enviado que têm [Geral] Ligação Pendente = Pendente
+  const ngLigPend=recs.filter(r=>nstr(novo(r.id_bitrix),'[NG] Motivo')==='Link de pagamento enviado'&&nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente').length;
+  ligChart('ch-ng-lig','Neg. Quente',cnt(recs,'[NG] Resultado Ligação','Atendeu'),cnt(recs,'[NG] Resultado Ligação','Não atendeu'),cnt(recs,'[NG] Resultado Ligação','Caixa Postal'),ngLigPend);
 }
 
 // ══════════════════════════════════════════════════════════════
