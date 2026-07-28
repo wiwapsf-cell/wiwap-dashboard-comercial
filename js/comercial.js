@@ -95,50 +95,51 @@ function renderAll(){
 function renderKPIs(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
-  const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  // Realizadas: interação=Reunião no período OU entrou em Show-up no período
-  const real=base.filter(r=>{
-    if(inPeriod(r.dt_interacao)&&r.ultima_interacao==='Reunião')return true;
-    const su=nstr(novo(r.id_bitrix),'[Show-up] Data entrada').slice(0,10);
-    return su&&inPeriod(su);
-  }).length;
+
+  // Agendadas = dt_apresentacao no período
   const agRecs=base.filter(r=>inPeriod(r.dt_apresentacao));
-  const realDessas=agRecs.filter(r=> r.ultima_interacao==='Reunião' || nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
-  const showRate=ag>0?realDessas/ag:NaN;
-  const noshowRate=ag>0?1-showRate:NaN;
+  const ag=agRecs.length;
+
+  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada preenchido
+  const realRecs=agRecs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
+  const real=realRecs.length;
+
+  // No-show = das agendadas no período, quantas NÃO têm [Show-up] Data entrada
+  const noshow=ag-real;
+  const showRate=ag>0?real/ag:NaN;
+  const noshowRate=ag>0?noshow/ag:NaN;
+
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const conv=leads>0?pag/leads:NaN;
-  // Ligações
+
+  // Ligações — filtradas por criado_em no período
+  const baseP=base.filter(r=>inPeriod(r.criado_em));
   const ligFields=['[CA-S1] Resultado Ligação','[CA-S2] Resultado Ligação','[CA-S3] Resultado Ligação','[Show-up] Resultado Ligação','[NG] Resultado Ligação'];
   let ligPend=0,ligReal=0,ligAt=0;
-  for(const r of base){const n=novo(r.id_bitrix);
+  for(const r of baseP){
+    const n=novo(r.id_bitrix);
     if(nstr(n,'[Geral] Ligação Pendente')==='Pendente')ligPend++;
     const results=ligFields.map(f=>nstr(n,f)).filter(v=>['Atendeu','Não atendeu','Caixa Postal'].includes(v));
     if(results.length)ligReal++;
     if(results.includes('Atendeu'))ligAt++;
   }
   const taxaAtend=ligReal>0?ligAt/ligReal:NaN;
-  // Faturamento
-  const fatP=fatRecords.filter(r=>r.dt_pagamento&&inPeriod(r.dt_pagamento)&&!r.estorno&&matchFat(r,selectedHunter));
-  const fatTotal=fatP.reduce((s,r)=>s+r.valor,0);
 
   setTxt('k-leads',fmt(leads));
   setTxt('k-leads-s',selectedHunter?`Atribuídos a ${selectedHunter.split(' ')[0]}`:'Sem outros segmentos');
   setTxt('k-ag',fmt(ag));
   setTxt('k-ag-s',leads>0?`${fmtPct(ag/leads)} dos leads`:'—');
   setTxt('k-real',fmt(real));
-  setTxt('k-real-s','Interação=Reunião ou Show-up');
+  setTxt('k-real-s','Leads que entraram em Show-up');
   setTxt('k-show',fmtPct(showRate));
-  setTxt('k-show-s',`${realDessas} de ${ag} agendadas`);
+  setTxt('k-show-s',`${real} de ${ag} agendadas`);
   setTxt('k-noshow',fmtPct(noshowRate));
-  setTxt('k-noshow-s',`${ag-realDessas} não compareceram`);
+  setTxt('k-noshow-s',`${noshow} não compareceram`);
   setTxt('k-ligpend',fmt(ligPend));
   setTxt('k-ligreal',fmt(ligReal));
   setTxt('k-ligreal-s',isFinite(taxaAtend)?`${fmtPct(taxaAtend)} taxa de atendimento`:'—');
   setTxt('k-pag',fmt(pag));
   setTxt('k-conv',fmtPct(conv));
-  setTxt('k-fat',fmtMoney(fatTotal));
-  setTxt('k-fat-s',`${fatP.length} vendas confirmadas`);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -148,11 +149,8 @@ function renderFunil(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
   const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  const real=base.filter(r=>{
-    if(inPeriod(r.dt_interacao)&&r.ultima_interacao==='Reunião')return true;
-    const su=nstr(novo(r.id_bitrix),'[Show-up] Data entrada').slice(0,10);
-    return su&&inPeriod(su);
-  }).length;
+  // Realizadas = agendadas no período com [Show-up] Data entrada preenchido
+  const real=base.filter(r=>inPeriod(r.dt_apresentacao)&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const chart=ec('ch-funil'); if(!chart)return;
   const denom=leads||1;
