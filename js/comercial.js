@@ -441,7 +441,7 @@ function renderStage6(){
   // Volume por hunter ao longo dos dias
   const H=HUNTERS_WHITELIST; const daysSet=new Set();
   const perH={}; H.forEach(h=>perH[h]={});
-  for(const r of recs){const h=canonHunter(r.responsavel);if(!h)continue;const d=nstr(novo(r.id_bitrix),'[Interação] Data entrada').slice(0,10);if(!d)continue;daysSet.add(d);perH[h][d]=(perH[h][d]||0)+1;}
+  for(const r of recs){const h=canonHunter(r.responsavel);if(!h)continue;const d=parseDateBR(nstr(novo(r.id_bitrix),'[Interação] Data entrada'));if(!d)continue;daysSet.add(d);perH[h][d]=(perH[h][d]||0)+1;}
   const dias=[...daysSet].sort().slice(-14);
   const colors={[H[0]]:PU,[H[1]]:NV,[H[2]]:GR,[H[3]]:OR,[H[4]]:TL};
   const chart=ec('ch-inter'); if(!chart)return;
