@@ -358,18 +358,25 @@ function renderStage5(){
   const recs=stageRecs('[Show-up] Data entrada');
   const m1=recs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Disparo M1'));
   const m2=recs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Disparo M2'));
-  const avancou=recs.filter(r=>r.dt_interacao||nstr(novo(r.id_bitrix),'[Interação] Data entrada'));
-  const nut=recs.length-avancou.length;
-  let ligPend=0; for(const r of flowRecords.filter(byHunter))if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPend++;
+  const avancou=recs.filter(r=>nstr(novo(r.id_bitrix),'[Interação] Data entrada'));
+  const nut=recs.filter(r=>r.etapa==='Nutrição').length;
+  // Lig. Pendentes — filtrado por criado_em no período
+  const baseP=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+  let ligPend=0; for(const r of baseP)if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPend++;
   setTxt('s5-total',fmt(recs.length));
   setTxt('s5-ligpend',fmt(ligPend));
   setTxt('s5-m1',fmt(m1.length));
   setTxt('s5-m2',fmt(m2.length));
   setTxt('s5-avancou',`${avancou.length} (${recs.length?Math.round(avancou.length/recs.length*100):0}%)`);
   setTxt('s5-nut',`${nut} (${recs.length?Math.round(nut/recs.length*100):0}%)`);
-  // Show-up por horário (campo horario_agenda)
+  // Show-up % por horário — taxa = [Show-up] Data entrada preenchido
   const hbuck={}; const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.dt_apresentacao));
-  for(const r of base){const h=(r.horario_agenda||'Outro').trim()||'Outro';if(!hbuck[h])hbuck[h]={tot:0,su:0};hbuck[h].tot++;if(r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))hbuck[h].su++;}
+  for(const r of base){
+    const h=(r.horario_agenda||'Outro').trim()||'Outro';
+    if(!hbuck[h])hbuck[h]={tot:0,su:0};
+    hbuck[h].tot++;
+    if(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))hbuck[h].su++;
+  }
   const hnames=Object.keys(hbuck).slice(0,4);
   const chHora=ec('ch-su-hora');
   if(chHora)chHora.setOption({
@@ -379,9 +386,13 @@ function renderStage5(){
     yAxis:{type:'value',max:100,axisLabel:{...AX,formatter:'{value}%'},splitLine:{lineStyle:{color:'#f1f5f9'}}},
     series:[{type:'bar',data:hnames.map(h=>hbuck[h].tot>0?+(hbuck[h].su/hbuck[h].tot*100).toFixed(1):0),barMaxWidth:40,itemStyle:{color:p=>p.value>=60?GR:p.value>=40?AM:RD,borderRadius:[4,4,0,0]},label:{show:true,position:'top',formatter:'{c}%',fontFamily:F,fontWeight:700,fontSize:10}}]
   });
-  // Show-up por hunter
+  // Show-up % por hunter
   const H=HUNTERS_WHITELIST; const hp={}; H.forEach(h=>hp[h]={tot:0,su:0});
-  for(const r of base){const h=canonHunter(r.responsavel);if(!h)continue;hp[h].tot++;if(r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))hp[h].su++;}
+  for(const r of base){
+    const h=canonHunter(r.responsavel);if(!h)continue;
+    hp[h].tot++;
+    if(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))hp[h].su++;
+  }
   const hdata=H.map(h=>({name:h.split(' ')[0],v:hp[h].tot>0?+(hp[h].su/hp[h].tot*100).toFixed(1):0})).sort((a,b)=>a.v-b.v);
   const chHunter=ec('ch-su-hunter');
   if(chHunter)chHunter.setOption({
@@ -391,9 +402,13 @@ function renderStage5(){
     yAxis:{type:'category',data:hdata.map(d=>d.name),axisLabel:{...AX,fontSize:10}},
     series:[{type:'bar',data:hdata.map((d,i)=>({value:d.v,itemStyle:{color:i===0?RD:TL}})),barMaxWidth:16,label:{show:true,position:'right',formatter:'{c}%',fontFamily:F,fontWeight:700,fontSize:10}}]
   });
-  // Show-up por dia da semana
+  // Show-up % por dia da semana
   const dowT=[0,0,0,0,0],dowS=[0,0,0,0,0];
-  for(const r of base){const d=new Date(r.dt_apresentacao+'T12:00:00').getDay();if(d<1||d>5)continue;dowT[d-1]++;if(r.ultima_interacao==='Reunião'||nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))dowS[d-1]++;}
+  for(const r of base){
+    const d=new Date(r.dt_apresentacao+'T12:00:00').getDay();if(d<1||d>5)continue;
+    dowT[d-1]++;
+    if(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))dowS[d-1]++;
+  }
   const chDia=ec('ch-su-dia');
   if(chDia)chDia.setOption({
     title:{text:'Show-up por dia da semana',textStyle:{fontFamily:F,fontSize:11,fontWeight:600}},
@@ -406,7 +421,7 @@ function renderStage5(){
   ligChart('ch-su-lig','Show-up',cnt(recs,'[Show-up] Resultado Ligação','Atendeu'),cnt(recs,'[Show-up] Resultado Ligação','Não atendeu'),cnt(recs,'[Show-up] Resultado Ligação','Caixa Postal'),ligPend);
   // M1/M2 por dia
   const md={};
-  for(const r of recs){const n=novo(r.id_bitrix);const d1=nstr(n,'[Show-up] Disparo M1').slice(0,10);const d2=nstr(n,'[Show-up] Disparo M2').slice(0,10);if(d1){if(!md[d1])md[d1]={m1:0,m2:0};md[d1].m1++;}if(d2){if(!md[d2])md[d2]={m1:0,m2:0};md[d2].m2++;}}
+  for(const r of recs){const n=novo(r.id_bitrix);const d1=parseDateBR(nstr(n,'[Show-up] Disparo M1'));const d2=parseDateBR(nstr(n,'[Show-up] Disparo M2'));if(d1){if(!md[d1])md[d1]={m1:0,m2:0};md[d1].m1++;}if(d2){if(!md[d2])md[d2]={m1:0,m2:0};md[d2].m2++;}}
   const dias=Object.keys(md).sort().slice(-14);
   const chM=ec('ch-su-m');
   if(chM)chM.setOption({
@@ -418,9 +433,6 @@ function renderStage5(){
   });
 }
 
-// ══════════════════════════════════════════════════════════════
-// STAGE 6 — INTERAÇÃO
-// ══════════════════════════════════════════════════════════════
 function renderStage6(){
   const recs=stageRecs('[Interação] Data entrada');
   const m1=recs.filter(r=>nstr(novo(r.id_bitrix),'[Interação] Disparo M1'));
