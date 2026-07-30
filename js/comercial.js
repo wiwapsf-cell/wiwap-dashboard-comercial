@@ -14,7 +14,6 @@ function loadData(){
     allRecords=bx.data.map(processRow).filter(r=>r.criado_em);
     flowRecords=allRecords.filter(r=>r.etapa!==OUTROS_SEGMENTOS);
     outrosRecords=allRecords.filter(r=>r.etapa===OUTROS_SEGMENTOS);
-    // maxDate = data mais recente entre todos os campos de data
     for(const r of allRecords)for(const f of DATE_FIELDS)if(r[f]&&r[f]>maxDate)maxDate=r[f];
     const hoje=new Date().toISOString().slice(0,10); if(maxDate>hoje)maxDate=hoje;
     try{fatRecords=(ft.data||[]).map(processFatRow).filter(r=>r.dt_pagamento&&r.valor>0);for(const r of fatRecords)if(r.dt_pagamento>maxDate&&r.dt_pagamento<=hoje)maxDate=r.dt_pagamento;}catch(e){fatRecords=[];}
@@ -68,11 +67,24 @@ function stageRecs(dateField){
   return flowRecords.filter(r=>{
     if(!byHunter(r))return false;
     const raw=nstr(novo(r.id_bitrix),dateField);
-    const d=parseDateBR(raw); // converte dd/mm/yyyy HH:MM:SS → yyyy-mm-dd
+    const d=parseDateBR(raw);
     return d&&inPeriod(d);
   });
 }
 function cnt(arr,field,val){return arr.filter(r=>nstr(novo(r.id_bitrix),field)===val).length;}
+
+// Normaliza valores do campo "Horário de Agenda" do Bitrix
+function normalizeHorario(raw){
+  const v=(raw||'').trim();
+  if(!v||v==='não selecionada')return null;
+  if(v.includes('11h')||v.startsWith('Opção 1'))return 'Às 11h';
+  if(v.includes('15h')||v.startsWith('Opção 2'))return 'Às 15h';
+  return 'Outro Horário';
+}
+
+// Ligações: considerar apenas leads criados a partir do alinhamento comercial (23/07/2026)
+const LIGACAO_CUTOFF='2026-07-23';
+const ligCutoff=r=>r.criado_em>=LIGACAO_CUTOFF;
 
 // ══════════════════════════════════════════════════════════════
 // RENDER PRINCIPAL
@@ -101,15 +113,12 @@ function renderKPIs(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
 
-  // Agendadas = dt_apresentacao no período
   const agRecs=base.filter(r=>inPeriod(r.dt_apresentacao));
   const ag=agRecs.length;
 
-  // Realizadas = das agendadas no período, quantas têm [Show-up] Data entrada preenchido (qualquer data)
   const realRecs=agRecs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
   const real=realRecs.length;
 
-  // No-show = das agendadas no período, quantas NÃO têm [Show-up] Data entrada
   const noshow=ag-real;
   const showRate=ag>0?real/ag:NaN;
   const noshowRate=ag>0?noshow/ag:NaN;
@@ -117,8 +126,8 @@ function renderKPIs(){
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const conv=leads>0?pag/leads:NaN;
 
-  // Ligações — filtradas por criado_em no período
-  const baseP=base.filter(r=>inPeriod(r.criado_em));
+  // Ligações — filtradas por criado_em no período + cutoff 23/07
+  const baseP=base.filter(r=>inPeriod(r.criado_em)&&ligCutoff(r));
   const ligFields=['[CA-S1] Resultado Ligação','[CA-S2] Resultado Ligação','[CA-S3] Resultado Ligação','[Show-up] Resultado Ligação','[NG] Resultado Ligação'];
   let ligPend=0,ligReal=0,ligAt=0;
   for(const r of baseP){
@@ -154,7 +163,6 @@ function renderFunil(){
   const base=flowRecords.filter(byHunter);
   const leads=base.filter(r=>inPeriod(r.criado_em)).length;
   const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  // Realizadas = agendadas no período com [Show-up] Data entrada preenchido
   const real=base.filter(r=>inPeriod(r.dt_apresentacao)&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
   const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
   const chart=ec('ch-funil'); if(!chart)return;
@@ -179,20 +187,15 @@ function renderStage1(){
   setTxt('s1-agend',`${agend.length} (${fmtPct(recebidos.length?agend.length/recebidos.length:0)})`);
   setTxt('s1-aband',`${aband.length} (${fmtPct(recebidos.length?aband.length/recebidos.length:0)})`);
 
-  // Gráfico por data (com barra deslizante)
-  // Agrega por dia: Recebidos (criado_em), Agendados (dt_apresentacao), No-show%
   const{start,end}=computeRange();
   const dayMap={};
-  // Inicializa todos os dias do período
   for(let d=new Date(start+'T12:00:00');d.toISOString().slice(0,10)<=end;d.setDate(d.getDate()+1)){
     const k=d.toISOString().slice(0,10);
     dayMap[k]={rec:0,ag:0,agTot:0,noshow:0};
   }
-  // Recebidos por dia de criação
   for(const r of recebidos){
     if(dayMap[r.criado_em])dayMap[r.criado_em].rec++;
   }
-  // Agendados e No-show por dia de apresentação
   for(const r of base.filter(r=>r.dt_apresentacao&&inPeriod(r.dt_apresentacao))){
     if(!dayMap[r.dt_apresentacao])continue;
     dayMap[r.dt_apresentacao].agTot++;
@@ -245,14 +248,12 @@ function renderStage2(){
   setTxt('s2-virou',`${virou.length} (${agendar.length?Math.round(virou.length/agendar.length*100):0}%)`);
   setTxt('s2-semint',`${semint.length} (${templ.length?Math.round(semint.length/templ.length*100):0}%)`);
   setTxt('s2-silencio',`${silencio.length} (${recs.length?Math.round(silencio.length/recs.length*100):0}%)`);
-  // Pie split da resposta
   const pie=ec('ch-ab-pie');
   if(pie)pie.setOption({
     title:{text:'Split da resposta',textStyle:{fontFamily:F,fontSize:11,fontWeight:600}},
     tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)',...TP},legend:{bottom:2,textStyle:{fontFamily:F,fontSize:10},itemHeight:9},
     series:[{type:'pie',radius:['40%','68%'],center:['50%','46%'],data:[{value:agendar.length,name:'Clicou "Agendar"',itemStyle:{color:GR}},{value:semint.length,name:'Sem interesse',itemStyle:{color:RD}},{value:silencio.length,name:'Silêncio → CA',itemStyle:{color:GY}}],label:{formatter:'{d}%',fontSize:11,fontFamily:F}}]
   });
-  // Disparos por dia
   const byDay={};
   for(const r of recs){const n=novo(r.id_bitrix);const t=nstr(n,'[Abandono] Template Enviado');if(!t)continue;const d=nstr(n,'[Abandono] Data entrada').slice(0,10);if(!d)continue;if(!byDay[d])byDay[d]={env:0,ag:0};byDay[d].env++;if(nstr(n,'[Abandono] Resposta Botão')==='Agendar Reunião')byDay[d].ag++;}
   const dias=Object.keys(byDay).sort().slice(-14);
@@ -267,7 +268,7 @@ function renderStage2(){
 }
 
 // ══════════════════════════════════════════════════════════════
-// LIGCHART (barra horizontal empilhada com %)
+// LIGCHART
 // ══════════════════════════════════════════════════════════════
 function ligChart(id,label,a,na,cx,pend){
   const tot=a+na+cx+(pend||0);
@@ -289,24 +290,21 @@ function ligChart(id,label,a,na,cx,pend){
 // STAGE 3 — CONTATO ATIVO HUNTER (S1/S2/S3)
 // ══════════════════════════════════════════════════════════════
 function renderStage3(){
-  // S1
   const s1=stageRecs('[CA-S1] Disparo Imediato');
   const s1nut=s1.filter(r=>r.etapa==='Nutrição').length;
   setTxt('ca-s1-disp',fmt(s1.length));
   setTxt('ca-s1-nut',fmt(s1nut));
   ligChart('ch-s1','CA S1',cnt(s1,'[CA-S1] Resultado Ligação','Atendeu'),cnt(s1,'[CA-S1] Resultado Ligação','Não atendeu'),cnt(s1,'[CA-S1] Resultado Ligação','Caixa Postal'),undefined);
-  // S2
   const s2=stageRecs('[CA-S2] Disparo Imediato');
   const s2d1=s2.filter(r=>nstr(novo(r.id_bitrix),'[CA-S2] Disparo D+1')).length;
   const s2resp=cnt(s2,'[CA-S2] Respondeu','Sim');
   const s2nut=s2.filter(r=>r.etapa==='Nutrição'||nstr(novo(r.id_bitrix),'[Abandono] Resposta Botão')==='Não tenho interesse').length;
-  let ligPendGlobal=0; for(const r of flowRecords.filter(byHunter))if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPendGlobal++;
+  let ligPendGlobal=0; for(const r of flowRecords.filter(byHunter).filter(ligCutoff))if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPendGlobal++;
   setTxt('ca-s2-d0',fmt(s2.length));
   setTxt('ca-s2-d1',fmt(s2d1));
   setTxt('ca-s2-resp',fmt(s2resp));
   setTxt('ca-s2-nut',fmt(s2nut));
   ligChart('ch-s2','CA S2',cnt(s2,'[CA-S2] Resultado Ligação','Atendeu'),cnt(s2,'[CA-S2] Resultado Ligação','Não atendeu'),cnt(s2,'[CA-S2] Resultado Ligação','Caixa Postal'),ligPendGlobal);
-  // S3
   const s3=stageRecs('[CA-S3] Disparo Imediato');
   const s3d2=s3.filter(r=>nstr(novo(r.id_bitrix),'[CA-S3] Disparo D+2')).length;
   const s3nut=s3.filter(r=>r.etapa==='Nutrição').length;
@@ -322,14 +320,11 @@ function renderStage3(){
 function renderStage4(){
   const base=flowRecords.filter(byHunter);
   const agend=base.filter(r=>inPeriod(r.dt_apresentacao));
-  // Realizadas = apenas quem tem [Show-up] Data entrada preenchido
   const real=agend.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
-  // No-show = agendadas no período com motivo = "Lead marcou reunião, mas não participou (HUNTER)"
   const noshow=agend.filter(r=>r.motivo_wpp_hunter==='Lead marcou reunião, mas não participou (HUNTER)');
   setTxt('s4-agend',fmt(agend.length));
   setTxt('s4-real',`${real.length} (${fmtPct(agend.length?real.length/agend.length:0)})`);
   setTxt('s4-noshow',`${noshow.length} (${fmtPct(agend.length?noshow.length/agend.length:0)})`);
-  // por hunter
   const H=HUNTERS_WHITELIST; const ag={},rl={},ns={}; H.forEach(h=>{ag[h]=0;rl[h]=0;ns[h]=0;});
   for(const r of agend){
     const h=canonHunter(r.responsavel);if(!h)continue;
@@ -360,8 +355,8 @@ function renderStage5(){
   const m2=recs.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Disparo M2'));
   const avancou=recs.filter(r=>nstr(novo(r.id_bitrix),'[Interação] Data entrada'));
   const nut=recs.filter(r=>r.etapa==='Nutrição').length;
-  // Lig. Pendentes — filtrado por criado_em no período
-  const baseP=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+  // Lig. Pendentes — filtrado por criado_em no período + cutoff 23/07
+  const baseP=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em)&&ligCutoff(r));
   let ligPend=0; for(const r of baseP)if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')ligPend++;
   setTxt('s5-total',fmt(recs.length));
   setTxt('s5-ligpend',fmt(ligPend));
@@ -369,10 +364,10 @@ function renderStage5(){
   setTxt('s5-m2',fmt(m2.length));
   setTxt('s5-avancou',`${avancou.length} (${recs.length?Math.round(avancou.length/recs.length*100):0}%)`);
   setTxt('s5-nut',`${nut} (${recs.length?Math.round(nut/recs.length*100):0}%)`);
-  // Show-up % por horário — taxa = [Show-up] Data entrada preenchido
+  // Show-up % por horário — NORMALIZADO
   const hbuck={}; const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.dt_apresentacao));
   for(const r of base){
-    const h=(r.horario_agenda||'Outro').trim()||'Outro';
+    const h=normalizeHorario(r.horario_agenda); if(!h)continue;
     if(!hbuck[h])hbuck[h]={tot:0,su:0};
     hbuck[h].tot++;
     if(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))hbuck[h].su++;
@@ -382,7 +377,7 @@ function renderStage5(){
   if(chHora)chHora.setOption({
     title:{text:'Show-up por horário',textStyle:{fontFamily:F,fontSize:11,fontWeight:600}},
     grid:{top:26,right:8,bottom:44,left:32},tooltip:{trigger:'axis',...TP},
-    xAxis:{type:'category',data:hnames.map(h=>h.length>10?h.slice(0,10)+'…':h),axisLabel:{...AX,fontSize:9,rotate:15}},
+    xAxis:{type:'category',data:hnames,axisLabel:{...AX,fontSize:9,rotate:15}},
     yAxis:{type:'value',max:100,axisLabel:{...AX,formatter:'{value}%'},splitLine:{lineStyle:{color:'#f1f5f9'}}},
     series:[{type:'bar',data:hnames.map(h=>hbuck[h].tot>0?+(hbuck[h].su/hbuck[h].tot*100).toFixed(1):0),barMaxWidth:40,itemStyle:{color:p=>p.value>=60?GR:p.value>=40?AM:RD,borderRadius:[4,4,0,0]},label:{show:true,position:'top',formatter:'{c}%',fontFamily:F,fontWeight:700,fontSize:10}}]
   });
@@ -438,7 +433,6 @@ function renderStage6(){
   const m1=recs.filter(r=>nstr(novo(r.id_bitrix),'[Interação] Disparo M1'));
   setTxt('s6-total',fmt(recs.length));
   setTxt('s6-m1',fmt(m1.length));
-  // Volume por hunter ao longo dos dias
   const H=HUNTERS_WHITELIST; const daysSet=new Set();
   const perH={}; H.forEach(h=>perH[h]={});
   for(const r of recs){const h=canonHunter(r.responsavel);if(!h)continue;const d=parseDateBR(nstr(novo(r.id_bitrix),'[Interação] Data entrada'));if(!d)continue;daysSet.add(d);perH[h][d]=(perH[h][d]||0)+1;}
@@ -472,8 +466,8 @@ function renderStage7(){
     tooltip:{trigger:'item',formatter:'{b}: {c} ({d}%)',...TP},legend:{bottom:2,textStyle:{fontFamily:F,fontSize:10},itemHeight:9},
     series:[{type:'pie',radius:['40%','68%'],center:['50%','46%'],data:[{value:link,name:'Link de pagamento enviado',itemStyle:{color:OR}},{value:futuro,name:'Deseja contato futuro',itemStyle:{color:AM}}],label:{formatter:'{d}%',fontSize:11,fontFamily:F}}]
   });
-  // Ligação pendente = leads com link enviado que têm [Geral] Ligação Pendente = Pendente
-  const ngLigPend=recs.filter(r=>nstr(novo(r.id_bitrix),'[NG] Motivo')==='Link de pagamento enviado'&&nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente').length;
+  // Ligação pendente — com cutoff 23/07
+  const ngLigPend=recs.filter(r=>ligCutoff(r)&&nstr(novo(r.id_bitrix),'[NG] Motivo')==='Link de pagamento enviado'&&nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente').length;
   ligChart('ch-ng-lig','Neg. Quente',cnt(recs,'[NG] Resultado Ligação','Atendeu'),cnt(recs,'[NG] Resultado Ligação','Não atendeu'),cnt(recs,'[NG] Resultado Ligação','Caixa Postal'),ngLigPend);
 }
 
@@ -492,21 +486,19 @@ function renderRankings(){
     const nq=recs.filter(r=>nstr(novo(r.id_bitrix),'[NG] Data entrada').slice(0,10)&&inPeriod(nstr(novo(r.id_bitrix),'[NG] Data entrada').slice(0,10))).length;
     const pg=recs.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
     const fat=fatRecords.filter(r=>r.dt_pagamento&&inPeriod(r.dt_pagamento)&&!r.estorno&&matchFat(r,h)).reduce((s,r)=>s+r.valor,0);
-    let lp=0;for(const r of recs)if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')lp++;
+    let lp=0;for(const r of recs.filter(ligCutoff))if(nstr(novo(r.id_bitrix),'[Geral] Ligação Pendente')==='Pendente')lp++;
     return{n:h,ag,re,su,i:inter,nq,pg,fat,lp};
   }).sort((a,b)=>b.fat-a.fat||b.pg-a.pg);
   const pl=['p1','ptl','ptl','pgr','p2'];
   const rk=document.getElementById('rk-body');
   if(rk)rk.innerHTML=stats.map((r,i)=>`<tr><td><span class="pill ${pl[i]||'p2'}">${i+1}º</span></td><td class="hn">${r.n}</td><td class="mn">${r.ag}</td><td class="mn">${r.re}</td><td><div style="display:flex;align-items:center;gap:5px"><div style="flex:1;height:5px;background:#f1f5f9;border-radius:3px;min-width:36px"><div style="height:100%;border-radius:3px;background:#00a0a3;width:${r.su}%"></div></div><span class="mn" style="width:32px">${r.su}%</span></div></td><td class="mn">${r.i}</td><td class="mn">${r.nq}</td><td class="mn" style="font-weight:700">${r.pg}</td><td class="mn" style="color:${r.fat>0?GR:GY}">${r.fat>0?fmtR(r.fat):'—'}</td><td><span class="pill ${r.lp>2?'ppu':'p2'}">${r.lp}</span></td></tr>`).join('');
 
-  // Ranking estados
   const estMap={};
   for(const r of base.filter(r=>inPeriod(r.criado_em))){const uf=r.estado_uf;if(!uf)continue;if(!estMap[uf])estMap[uf]={l:0,c:0};estMap[uf].l++;if(r.dt_pagamento&&r.etapa==='Pagamento Recebido')estMap[uf].c++;}
   const estArr=Object.entries(estMap).map(([uf,d])=>({uf,nome:ESTADO_NOMES[uf]||uf,l:d.l,c:d.c,t:d.l>0?+(d.c/d.l*100).toFixed(1):0})).sort((a,b)=>b.l-a.l).slice(0,15);
   const est=document.getElementById('est-body');
   if(est)est.innerHTML=estArr.map(e=>`<tr><td><span class="uf">${e.uf}</span><span class="ufn">${e.nome}</span></td><td class="mn">${e.l}</td><td class="mn">${e.c}</td><td><span class="pill ${e.t>=6?'pgr':'p1'}">${e.t}%</span></td></tr>`).join('');
 
-  // Fat por hunter (comercial)
   const fatByH=H.map(h=>fatRecords.filter(r=>r.dt_pagamento&&inPeriod(r.dt_pagamento)&&!r.estorno&&matchFat(r,h)).reduce((s,r)=>s+r.valor,0));
   const chart=ec('ch-fat-hunter');
   if(chart)chart.setOption({
@@ -538,9 +530,9 @@ function renderImpacto(){
   if(c1)c1.setOption({tooltip:{trigger:'item',formatter:'{b}: {c}',...TP},legend:{bottom:2,textStyle:{fontFamily:F,fontSize:10},itemHeight:9},series:[{type:'pie',radius:['42%','70%'],center:['50%','46%'],data:[{value:comLig.length,name:'Com ligação atendida',itemStyle:{color:GR}},{value:pagRecs.length-comLig.length,name:'Sem ligação registrada',itemStyle:{color:GY}}],label:{formatter:'{d}%',fontSize:11,fontFamily:F}}]});
   const c2=ec('ch-api-conv');
   if(c2)c2.setOption({tooltip:{trigger:'item',formatter:'{b}: {c}',...TP},legend:{bottom:2,textStyle:{fontFamily:F,fontSize:10},itemHeight:9},series:[{type:'pie',radius:['42%','70%'],center:['50%','46%'],data:[{value:comApi.length,name:'Recebeu API Oficial',itemStyle:{color:NV}},{value:pagRecs.length-comApi.length,name:'Não recebeu',itemStyle:{color:GY}}],label:{formatter:'{d}%',fontSize:11,fontFamily:F}}]});
-  // Ligações por hunter
+  // Ligações por hunter — com cutoff 23/07
   const H=HUNTERS_WHITELIST; const pend={},real={},at={}; H.forEach(h=>{pend[h]=0;real[h]=0;at[h]=0;});
-  for(const r of base){const h=canonHunter(r.responsavel);if(!h)continue;const n=novo(r.id_bitrix);if(nstr(n,'[Geral] Ligação Pendente')==='Pendente')pend[h]++;const res=ligFields.map(f=>nstr(n,f)).filter(v=>['Atendeu','Não atendeu','Caixa Postal'].includes(v));if(res.length)real[h]++;if(res.includes('Atendeu'))at[h]++;}
+  for(const r of base.filter(ligCutoff)){const h=canonHunter(r.responsavel);if(!h)continue;const n=novo(r.id_bitrix);if(nstr(n,'[Geral] Ligação Pendente')==='Pendente')pend[h]++;const res=ligFields.map(f=>nstr(n,f)).filter(v=>['Atendeu','Não atendeu','Caixa Postal'].includes(v));if(res.length)real[h]++;if(res.includes('Atendeu'))at[h]++;}
   const c3=ec('ch-lig-hunter');
   if(c3)c3.setOption({
     tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
