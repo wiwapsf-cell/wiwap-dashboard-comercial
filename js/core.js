@@ -13,10 +13,10 @@ const AX={fontFamily:'Plus Jakarta Sans',fontSize:10,color:'#64748b'};
 const F='Plus Jakarta Sans';
 
 const TICKET_MEDIO = 860;
-const META_MENSAL = 300000;
-const META_POR_HUNTER = 60000;
-const META_SETUPS_MES_HUNTER = 70;
-const META_SETUPS_SEM_HUNTER = 18;
+const META_MENSAL = 200000;
+const META_POR_HUNTER = 40000;
+const META_SETUPS_MES_HUNTER = 47;
+const META_SETUPS_SEM_HUNTER = 12;
 const OUTROS_SEGMENTOS = 'Outros Segmentoss';
 
 let fatRecords = [];
