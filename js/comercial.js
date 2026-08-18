@@ -546,5 +546,5 @@ function renderImpacto(){
 // ══════════════════════════════════════════════════════════════
 // ACOMPANHAMENTO
 // ══════════════════════════════════════════════════════════════
-const META_MES_SETUPS=70, META_MES_FAT=60000, META_SEM_SETUPS=18;
+const META_MES_SETUPS=47, META_MES_FAT=40000, META_SEM_SETUPS=12;
 function colorBar(p){return p>=100?GR:p>=70?TL:p>=50?AM:RD;}
