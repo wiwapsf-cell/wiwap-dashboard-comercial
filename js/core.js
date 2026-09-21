@@ -176,4 +176,4 @@ function simplifyFonte(f){
 
 // ===== ECHARTS helper (dispose+init) =====
 function ec(id){const e=document.getElementById(id);if(!e)return null;const ex=echarts.getInstanceByDom(e);if(ex)ex.dispose();return echarts.init(e);}
-function resizeVisible(){document.querySelectorAll('.pane.on [id^="ch-"]').forEach(e=>{const i=echarts.getInstanceByDom(e);if(i)i.resize();});}
+function resizeVisible(){document.querySelectorAll('.pane.on [id^="ch-"], .pane.on [id^="sdr-ch-"]').forEach(e=>{const i=echarts.getInstanceByDom(e);if(i)i.resize();});}
