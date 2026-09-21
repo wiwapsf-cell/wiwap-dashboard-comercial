@@ -207,7 +207,6 @@ function renderSDR() {
   renderSDRShowupChart();
   renderSDRAgendChart();
   renderSDRFonteHunter();
-  renderSDRBacklog();
   setTimeout(resizeVisible, 80);
 }
 
