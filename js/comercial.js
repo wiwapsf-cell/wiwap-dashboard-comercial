@@ -55,6 +55,7 @@ function tab(id,el){
   document.getElementById('pane-'+id).classList.add('on');
   activeTab=id;
   if(id==='mkt'){renderMkt();}
+  if(id==='sdr'){renderSDR();}
   setTimeout(resizeVisible,60);
 }
 
@@ -79,6 +80,7 @@ function normalizeHorario(raw){
   if(!v||v==='não selecionada')return null;
   if(v.includes('11h')||v.startsWith('Opção 1'))return 'Às 11h';
   if(v.includes('15h')||v.startsWith('Opção 2'))return 'Às 15h';
+  if(v.includes('16h')||v.startsWith('Opção 3'))return 'Às 16h';
   return 'Outro Horário';
 }
 
@@ -103,6 +105,7 @@ function renderAll(){
   renderImpacto();
   renderAcomp();
   if(activeTab==='mkt'){mktInited=false;renderMkt();}
+  if(activeTab==='sdr'){renderSDR();}
   setTimeout(resizeVisible,80);
 }
 
