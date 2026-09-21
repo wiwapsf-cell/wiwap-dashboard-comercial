@@ -24,7 +24,7 @@ function sdrShowup(r) {
 
 // Leads criados no período (todos, antes de filtro segmento)
 function sdrLeadsCriados() {
-  return allRecords.filter(r => inPeriod(r.criado_em));
+  return flowRecords.filter(r => inPeriod(r.criado_em));
 }
 
 // Reuniões criadas no período (dt_reuniao_agendada no período)
@@ -70,7 +70,7 @@ function sdrMetricasPorDia(dias) {
     const marcadas = flowRecords.filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(iso));
     const presentes = marcadas.filter(r => sdrShowup(r));
     const agendGer  = flowRecords.filter(r => r.dt_reuniao_agendada && r.dt_reuniao_agendada.startsWith(iso));
-    const leads     = allRecords.filter(r => r.criado_em && r.criado_em.startsWith(iso));
+    const leads     = flowRecords.filter(r => r.criado_em && r.criado_em.startsWith(iso));
     return {
       iso,
       marcadas: marcadas.length,
@@ -495,14 +495,36 @@ function renderSDRAgendChart() {
 function renderSDRFonteHunter() {
   const dias7 = sdrUltimos7d();
 
-  // Agrupa show-up por fonte (período filtrado ou 7d se filtro = hoje)
   const recs7d = flowRecords.filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
 
   const fonteMap = {};
   const hunterMap = {};
 
   recs7d.forEach(r => {
-    const f  = (typeof simplifyFonte === 'function' ? simplifyFonte(r.fonte) : r.fonte) || 'Sem fonte';
+    // Usa simplifyFonte se disponível, senão trata manualmente
+    let f = r.fonte || 'Sem fonte';
+    if (typeof simplifyFonte === 'function') {
+      f = simplifyFonte(f);
+    } else {
+      // fallback simples
+      if (f.includes('Tráfego Pago Meta')) {
+        const pb = f.match(/\[PB\d+\]/);
+        const tipo = f.match(/(?:CBO|ABO)\s*[-–]\s*(.+?)\s*[-–]\s*\[/);
+        f = pb ? ('Meta ' + (tipo ? tipo[1].trim() + ' - ' : '') + pb[0].replace(/[\[\]]/g,'')) : 'Meta Geral';
+      } else if (f.includes('Chamada Vivo')) {
+        f = 'Chamada Vivo';
+      } else if (f.includes('Formulário Site') || f.includes('Formulario Site')) {
+        f = 'Formulário Site';
+      } else if (f.includes('Instagram')) {
+        f = 'Instagram';
+      } else if (f.includes('Indicação') || f.includes('Indicacao')) {
+        f = 'Indicação';
+      } else if (f.includes('WhatsApp') || f.includes('Whatsapp')) {
+        f = 'WhatsApp';
+      }
+      if (f.length > 25) f = f.substring(0, 25);
+    }
+
     const h  = r.hunter || 'Sem hunter';
     const su = sdrShowup(r);
     if (!fonteMap[f])  fonteMap[f]  = { ag: 0, su: 0 };
@@ -564,47 +586,83 @@ function renderSDRBacklog() {
 
   const hoje = new Date().toISOString().slice(0, 10);
 
-  // 1. Leads sem primeiro contato (sem dt_reuniao_agendada e sem dt_msg_wpp_hunter, criados antes de hoje)
+  // Janela: últimos 30 dias (evita contar histórico inteiro)
+  const dt30 = new Date();
+  dt30.setDate(dt30.getDate() - 30);
+  const limite30 = dt30.toISOString().slice(0, 10);
+
+  // 1. Leads sem primeiro contato — criados nos últimos 30 dias, antes de hoje,
+  //    sem agendamento e sem msg wpp hunter
   const semContato = flowRecords.filter(r => {
     if (!r.criado_em || r.criado_em >= hoje) return false;
+    if (r.criado_em < limite30) return false;
     return !r.dt_reuniao_agendada && !r.dt_msg_wpp_hunter;
   });
 
-  // 2. No-shows aguardando (dt_apresentacao < hoje, sem [Show-up] Data entrada)
-  const noShows = flowRecords.filter(r => {
-    if (!r.dt_apresentacao || r.dt_apresentacao >= hoje) return false;
+  // 2. No-shows de hoje (reunião foi hoje, sem show-up)
+  const noShowsHoje = flowRecords.filter(r => {
+    if (!r.dt_apresentacao || !r.dt_apresentacao.startsWith(hoje)) return false;
+    const agora = new Date();
+    const hAgora = agora.getHours();
+    const slot = normalizeHorarioSDR(r.horario_agenda);
+    // só conta como no-show se o horário já passou
+    if (slot === 'Às 11h' && hAgora < 12) return false;
+    if (slot === 'Às 15h' && hAgora < 16) return false;
+    if (slot === 'Às 16h' && hAgora < 17) return false;
     return !sdrShowup(r);
   });
 
-  // 3. Reuniões marcadas para hoje ainda sem status (horário ainda não chegou e sem show-up)
+  // 3. No-shows de ontem e anteontem (últimos 2 dias úteis, excluindo hoje)
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate() - 1);
+  const ontemStr = ontem.toISOString().slice(0, 10);
+  const anteontem = new Date();
+  anteontem.setDate(anteontem.getDate() - 2);
+  const anteontemStr = anteontem.toISOString().slice(0, 10);
+
+  const noShowsRecentes = flowRecords.filter(r => {
+    if (!r.dt_apresentacao) return false;
+    if (!r.dt_apresentacao.startsWith(ontemStr) && !r.dt_apresentacao.startsWith(anteontemStr)) return false;
+    return !sdrShowup(r);
+  });
+
+  // 4. Reuniões marcadas para hoje ainda aguardando (horário não encerrado)
   const agora = new Date();
   const hAgora = agora.getHours();
   const aguardando = flowRecords.filter(r => {
     if (!r.dt_apresentacao || !r.dt_apresentacao.startsWith(hoje)) return false;
     if (sdrShowup(r)) return false;
-    const h = normalizeHorarioSDR(r.horario_agenda);
-    if (h === 'Às 11h' && hAgora >= 12) return false; // já deveria ter acontecido
+    const slot = normalizeHorarioSDR(r.horario_agenda);
+    if (slot === 'Às 11h' && hAgora >= 12) return false;
+    if (slot === 'Às 15h' && hAgora >= 16) return false;
+    if (slot === 'Às 16h' && hAgora >= 17) return false;
     return true;
   });
 
   const items = [
     {
-      title: 'Leads sem primeiro contato',
-      sub: 'Leads criados antes de hoje sem agendamento nem msg wpp hunter · SLA 1 dia útil',
-      val: semContato.length,
-      cls: semContato.length > 10 ? 'bad' : semContato.length > 3 ? 'warn' : ''
+      title: 'No-shows de hoje sem remarcação',
+      sub: `Reuniões de hoje que não realizaram · horários já encerrados`,
+      val: noShowsHoje.length,
+      cls: noShowsHoje.length > 5 ? 'bad' : noShowsHoje.length > 0 ? 'warn' : ''
     },
     {
-      title: 'No-shows aguardando remarcação',
-      sub: 'Reuniões passadas sem [Show-up] Data entrada · pendentes de retomada',
-      val: noShows.length,
-      cls: noShows.length > 5 ? 'bad' : noShows.length > 0 ? 'warn' : ''
+      title: 'No-shows recentes (ontem / anteontem)',
+      sub: `Reuniões dos últimos 2 dias sem presença · pendentes de retomada`,
+      val: noShowsRecentes.length,
+      cls: noShowsRecentes.length > 8 ? 'bad' : noShowsRecentes.length > 3 ? 'warn' : ''
+    },
+    {
+      title: 'Leads sem contato (últimos 30d)',
+      sub: `Leads de segmento válido criados há 1+ dia sem agendamento nem msg wpp`,
+      val: semContato.length,
+      cls: semContato.length > 20 ? 'bad' : semContato.length > 5 ? 'warn' : ''
     },
     {
       title: 'Reuniões de hoje ainda aguardando',
-      sub: 'Horários ainda não encerrados e sem presença registrada',
+      sub: `Horários ainda não encerrados e sem presença registrada`,
       val: aguardando.length,
-      cls: aguardando.length > 3 ? 'warn' : ''
+      cls: ''
     },
   ];
 
