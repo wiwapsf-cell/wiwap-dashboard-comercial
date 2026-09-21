@@ -16,6 +16,7 @@ function normalizeHorarioSDR(raw) {
 }
 
 const SDR_SLOTS = ['Às 11h', 'Às 15h', 'Às 16h', 'Outro'];
+const SDR_SHOWUP_META = 50; // meta de show-up e agendamento %
 
 // ── Utilitários locais ───────────────────────────────────────────
 function sdrShowup(r) {
@@ -197,7 +198,7 @@ function sdrCorDiff(diff) {
   return '#64748b';
 }
 
-const SDR_SHOWUP_META = 50; // meta de show-up %
+const SDR_SHOWUP_META_PLACEHOLDER = null; // já declarada no topo
 
 // ── RENDER PRINCIPAL ─────────────────────────────────────────────
 function renderSDR() {
@@ -376,7 +377,7 @@ function renderSDRHorario() {
           <span class="sdr-pct-val" style="color:${recs.length > 0 ? cor : '#94a3b8'}">
             ${recs.length > 0 ? pct + '%' : '—'}
           </span>
-          <span class="sdr-pct-lbl">${encerrado ? 'show-up' : (emAberto ? 'show-up (parcial)' : 'show-up')}</span>
+          <span class="sdr-pct-lbl">${statusTxt === 'Em andamento' ? 'show-up (parcial)' : 'show-up'}</span>
         </div>
         <div class="sdr-hbar">
           <div class="sdr-hbar-fill" style="width:${barW}%;background:${cor}"></div>
