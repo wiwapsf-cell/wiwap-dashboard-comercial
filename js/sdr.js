@@ -2,7 +2,7 @@
    SDR.JS — Aba da SDR
    Depende de: core.js, comercial.js (allRecords, flowRecords,
    novoMap, inPeriod, byHunter, normalizeHorario, parseDateBR,
-   nstr, novo, getChart, COLORS, resizeVisible)
+   nstr, novo, ec, resizeVisible)
 ═══════════════════════════════════════════════════════ */
 
 // ── Normaliza horário incluindo 16h ──────────────────────────────
@@ -342,7 +342,7 @@ function renderSDRHorario() {
 
 // ── GRÁFICO: SHOW-UP 7d COM NÚMEROS ─────────────────────────────
 function renderSDRShowupChart() {
-  const chart = getChart('sdr-ch-showup');
+  const chart = ec('sdr-ch-showup');
   if (!chart) return;
 
   const dias7  = sdrUltimos7d();
@@ -430,7 +430,7 @@ function renderSDRShowupChart() {
 
 // ── GRÁFICO: AGENDAMENTOS 7d ─────────────────────────────────────
 function renderSDRAgendChart() {
-  const chart = getChart('sdr-ch-agend');
+  const chart = ec('sdr-ch-agend');
   if (!chart) return;
 
   const dias7  = sdrUltimos7d();
@@ -517,7 +517,7 @@ function renderSDRFonteHunter() {
     .map(([k,v]) => ({ name: k, pct: +(v.su / v.ag * 100).toFixed(1) }))
     .sort((a,b) => a.pct - b.pct);
 
-  const chFonte = getChart('sdr-ch-fonte');
+  const chFonte = ec('sdr-ch-fonte');
   if (chFonte && fonteSorted.length > 0) {
     chFonte.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
@@ -541,7 +541,7 @@ function renderSDRFonteHunter() {
     .map(h => ({ name: h.split(' ')[0], pct: +(hunterMap[h].su / hunterMap[h].ag * 100).toFixed(1) }))
     .sort((a,b) => a.pct - b.pct);
 
-  const chHunter = getChart('sdr-ch-hunter');
+  const chHunter = ec('sdr-ch-hunter');
   if (chHunter && hunterSorted.length > 0) {
     chHunter.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
