@@ -1,0 +1,202 @@
+/* ═══════════════════════════════════════════════════════
+   SDR TAB — estilos exclusivos da aba da SDR
+   Depende de: style.css (variáveis e base)
+═══════════════════════════════════════════════════════ */
+
+/* ── KPI Row SDR ── */
+.sdr-krow {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 9px;
+  margin-bottom: 11px;
+}
+.sdr-kc {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+  border-top: 3px solid var(--border2);
+}
+.sdr-kc.tl { border-top-color: var(--teal); }
+.sdr-kc.nv { border-top-color: var(--navy); }
+.sdr-kc.gr { border-top-color: var(--gr); }
+.sdr-kc.or { border-top-color: var(--or); }
+
+.sdr-kl {
+  font-size: 9.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--muted); margin-bottom: 4px;
+  display: flex; align-items: center; gap: 4px;
+}
+.sdr-kv {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px; font-weight: 600; line-height: 1;
+  color: var(--tx);
+}
+.sdr-kv.tl { color: var(--teal); }
+.sdr-kv.gr { color: var(--gr); }
+.sdr-kv.or { color: var(--or); }
+.sdr-kv.rd { color: var(--rd); }
+.sdr-ks { font-size: 10px; color: var(--muted); margin-top: 3px; }
+.sdr-badge {
+  font-size: 9px; font-weight: 700;
+  padding: 1px 6px; border-radius: 8px;
+  float: right;
+}
+.sdr-badge.up { background: #d1fae5; color: #065f46; }
+.sdr-badge.dn { background: #fee2e2; color: #991b1b; }
+.sdr-badge.fl { background: var(--bg); color: var(--muted); }
+
+.sdr-prog {
+  height: 3px; background: var(--border);
+  border-radius: 2px; margin-top: 8px; overflow: hidden;
+}
+.sdr-prog-fill { height: 100%; border-radius: 2px; }
+
+/* ── Horário Grid (bloco central) ── */
+.sdr-horario-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--border);
+}
+.sdr-hcol {
+  padding: 16px 18px;
+  border-right: 1px solid var(--border);
+}
+.sdr-hcol:last-child {
+  border-right: none;
+  background: var(--bg);
+}
+.sdr-hcol-top {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.sdr-slot-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; font-weight: 700; color: var(--navy);
+  letter-spacing: -.01em;
+}
+.sdr-hcol:last-child .sdr-slot-lbl { color: var(--tx); }
+
+.sdr-status-tag {
+  font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px;
+  letter-spacing: .3px; text-transform: uppercase;
+}
+.sdr-st-done    { background: #d1fae5; color: #065f46; }
+.sdr-st-live    { background: #e0f2fe; color: #0369a1; }
+.sdr-st-pending { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+.sdr-big-row {
+  display: flex; align-items: baseline; gap: 5px;
+  margin-bottom: 2px;
+}
+.sdr-agend {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px; font-weight: 700; line-height: 1;
+  color: var(--tx); letter-spacing: -.02em;
+}
+.sdr-agend-lbl { font-size: 10.5px; color: var(--muted); }
+
+.sdr-pres-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+}
+.sdr-pres {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; font-weight: 700; line-height: 1;
+  color: var(--teal);
+}
+.sdr-pres-lbl { font-size: 10.5px; color: var(--muted); }
+.sdr-noshow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 600; color: var(--rd);
+  margin-left: auto;
+}
+
+.sdr-pct-row {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 8px;
+}
+.sdr-pct-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px; font-weight: 700; letter-spacing: -.01em;
+}
+.sdr-pct-lbl { font-size: 10.5px; color: var(--muted); }
+
+.sdr-hbar {
+  height: 4px; background: var(--border);
+  border-radius: 2px; overflow: hidden; margin-bottom: 10px;
+}
+.sdr-hbar-fill { height: 100%; border-radius: 2px; transition: width .4s; }
+
+.sdr-media-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 10px; border-top: 1px solid var(--border2);
+  font-size: 10.5px;
+}
+.sdr-media-lbl { color: var(--muted); }
+.sdr-media-right { display: flex; align-items: center; gap: 5px; }
+.sdr-media-diff {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; font-weight: 700;
+}
+.sdr-media-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700; color: var(--muted);
+}
+
+/* ── Charts ── */
+.sdr-g2 {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 11px; margin-bottom: 11px;
+}
+
+/* ── Backlog ── */
+.sdr-bl-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 11px 15px; border-bottom: 1px solid var(--border2);
+  gap: 12px;
+}
+.sdr-bl-item:last-child { border-bottom: none; }
+.sdr-bl-item:hover { background: var(--bg); }
+.sdr-bl-title { font-size: 12px; font-weight: 600; color: var(--tx); }
+.sdr-bl-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.sdr-bl-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px; font-weight: 700; flex-shrink: 0;
+}
+.sdr-bl-val.warn { color: var(--or); }
+.sdr-bl-val.bad  { color: var(--rd); }
+
+/* ── Info icon ── */
+.sdr-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--border2); color: var(--muted);
+  font-size: 8.5px; font-weight: 700; cursor: help; font-family: monospace;
+  position: relative;
+}
+.sdr-info::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--tx); color: #fff;
+  font-size: 10.5px; font-weight: 500; font-family: 'Plus Jakarta Sans', sans-serif;
+  padding: 6px 10px; border-radius: 5px;
+  z-index: 300; max-width: 260px; text-align: center;
+  line-height: 1.4; min-width: 160px; white-space: normal;
+  display: none; pointer-events: none;
+}
+.sdr-info:hover::after { display: block; }
+
+/* Responsividade básica */
+@media (max-width: 1100px) {
+  .sdr-krow { grid-template-columns: repeat(3, 1fr); }
+  .sdr-horario-grid { grid-template-columns: 1fr 1fr; }
+  .sdr-g2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .sdr-krow { grid-template-columns: 1fr 1fr; }
+  .sdr-horario-grid { grid-template-columns: 1fr; }
+}
