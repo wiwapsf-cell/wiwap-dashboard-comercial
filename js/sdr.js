@@ -456,6 +456,13 @@ function renderSDRShowupChart() {
     ? +(mets.filter(m=>m.marcadas>0).reduce((s,m)=>s+m.pct,0) / mets.filter(m=>m.marcadas>0).length).toFixed(1)
     : 0;
 
+  // DataZoom: mostra janela de ~14 pontos, com scroll se tiver mais
+  const totalPts = labels.length;
+  const showPts  = Math.min(14, totalPts);
+  const zoomEnd  = 100;
+  const zoomStart = totalPts > showPts ? Math.round((1 - showPts / totalPts) * 100) : 0;
+  const showLabels = totalPts <= 20;
+
   chart.setOption({
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
@@ -473,12 +480,18 @@ function renderSDRShowupChart() {
     legend: {
       data: ['Agendadas', 'Presentes', 'Show-up %'],
       textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#64748b' },
-      bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 14
+      top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 14
     },
-    grid: { left: 36, right: 46, top: 14, bottom: 34 },
+    dataZoom: totalPts > 7 ? [
+      { type: 'slider', start: zoomStart, end: zoomEnd, height: 18, bottom: 2,
+        borderColor: '#e2e8f0', fillerColor: 'rgba(0,160,163,0.12)',
+        handleStyle: { color: '#00a0a3' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 9, color: '#94a3b8' } },
+      { type: 'inside', start: zoomStart, end: zoomEnd }
+    ] : [],
+    grid: { left: 36, right: 46, top: 28, bottom: totalPts > 7 ? 40 : 18 },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' },
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8', rotate: totalPts > 14 ? 30 : 0 },
       axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false }
     },
     yAxis: [
@@ -500,7 +513,7 @@ function renderSDRShowupChart() {
         data: marcA,
         itemStyle: { color: '#e2e8f0', borderRadius: [3,3,0,0] },
         barMaxWidth: 22, barGap: '-20%',
-        label: { show: true, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono' }
+        label: { show: showLabels, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono' }
       },
       {
         name: 'Presentes', type: 'bar',
@@ -509,14 +522,14 @@ function renderSDRShowupChart() {
           itemStyle: { color: dias[i] === ref ? '#00a0a3' : '#5fc7c9', borderRadius: [3,3,0,0] }
         })),
         barMaxWidth: 22,
-        label: { show: true, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#1e293b', fontFamily: 'JetBrains Mono' }
+        label: { show: showLabels, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#1e293b', fontFamily: 'JetBrains Mono' }
       },
       {
         name: 'Show-up %', type: 'line', yAxisIndex: 1,
         data: pctA, smooth: false,
         symbol: 'circle', symbolSize: 7,
         itemStyle: { color: '#003462' }, lineStyle: { color: '#003462', width: 2 },
-        label: { show: true, formatter: p => p.value ? p.value + '%' : '', fontSize: 10, color: '#003462', fontWeight: 700, fontFamily: 'JetBrains Mono', position: 'top' },
+        label: { show: showLabels, formatter: p => p.value ? p.value + '%' : '', fontSize: 10, color: '#003462', fontWeight: 700, fontFamily: 'JetBrains Mono', position: 'top' },
         markLine: {
           silent: true, symbol: 'none',
           lineStyle: { type: 'dashed', color: '#059669', width: 1.5 },
@@ -541,6 +554,12 @@ function renderSDRAgendChart() {
   const ref    = sdrDiaRef();
 
   chart.setOption({
+  const totalPts2  = labels.length;
+  const showPts2   = Math.min(14, totalPts2);
+  const zStart2    = totalPts2 > showPts2 ? Math.round((1 - showPts2 / totalPts2) * 100) : 0;
+  const showLbl2   = totalPts2 <= 20;
+
+  chart.setOption({
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
       textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
@@ -557,12 +576,18 @@ function renderSDRAgendChart() {
     legend: {
       data: ['Leads criados', 'Agendamentos gerados'],
       textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#64748b' },
-      bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 14
+      top: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 14
     },
-    grid: { left: 36, right: 12, top: 14, bottom: 34 },
+    dataZoom: totalPts2 > 7 ? [
+      { type: 'slider', start: zStart2, end: 100, height: 18, bottom: 2,
+        borderColor: '#e2e8f0', fillerColor: 'rgba(0,160,163,0.12)',
+        handleStyle: { color: '#00a0a3' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 9, color: '#94a3b8' } },
+      { type: 'inside', start: zStart2, end: 100 }
+    ] : [],
+    grid: { left: 36, right: 12, top: 28, bottom: totalPts2 > 7 ? 40 : 18 },
     xAxis: {
       type: 'category', data: labels,
-      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' },
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8', rotate: totalPts2 > 14 ? 30 : 0 },
       axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false }
     },
     yAxis: {
@@ -577,7 +602,7 @@ function renderSDRAgendChart() {
         data: leadsA,
         itemStyle: { color: '#e2e8f0', borderRadius: [3,3,0,0] },
         barMaxWidth: 22,
-        label: { show: true, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono' }
+        label: { show: showLbl2, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono' }
       },
       {
         name: 'Agendamentos gerados', type: 'bar',
@@ -586,7 +611,7 @@ function renderSDRAgendChart() {
           itemStyle: { color: dias[i] === ref ? '#00a0a3' : '#14c0c4', borderRadius: [3,3,0,0] }
         })),
         barMaxWidth: 22,
-        label: { show: true, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#1e293b', fontFamily: 'JetBrains Mono' }
+        label: { show: showLbl2, position: 'top', formatter: p => p.value || '', fontSize: 10, fontWeight: 700, color: '#1e293b', fontFamily: 'JetBrains Mono' }
       }
     ]
   }, true);
