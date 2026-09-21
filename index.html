@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/sdr.css">
 </head>
 <body>
 
@@ -24,6 +25,7 @@
   <button class="tb on" onclick="tab('com',this)">🎯 Comercial</button>
   <button class="tb" onclick="tab('acomp',this)">📊 Acompanhamento</button>
   <button class="tb" onclick="tab('mkt',this)">📣 Marketing</button>
+  <button class="tb" onclick="tab('sdr',this)">📋 SDR</button>
 </div>
 <div class="wrap">
 <div class="pane on" id="pane-com">
@@ -358,9 +360,66 @@
 </div>
 
 </div>
+</div><!-- /pane-mkt -->
+
+<!-- ═══════════════ PANE SDR ═══════════════ -->
+<div class="pane" id="pane-sdr">
+
+  <!-- KPIs -->
+  <div class="sdr-krow" id="sdr-kpis"></div>
+
+  <!-- Presença por horário -->
+  <div class="panel" style="margin-bottom:11px;padding:0;overflow:hidden">
+    <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Presença por horário · hoje</div>
+      <div class="ps">Resultado de cada slot comparado com a média dos últimos 7 dias úteis naquele mesmo horário</div>
+    </div>
+    <div class="sdr-horario-grid" id="sdr-horario-grid"></div>
+  </div>
+
+  <!-- Gráficos: show-up 7d + agendamentos 7d -->
+  <div class="sdr-g2">
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up diário · últimos 7d</div>
+      <div class="ps">% de presença, agendadas e presentes por dia · linha = taxa show-up</div>
+      <div id="sdr-ch-showup" style="height:230px"></div>
+    </div>
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Agendamentos gerados · últimos 7d</div>
+      <div class="ps">Reuniões criadas por dia vs leads recebidos · rótulos mostram volume exato</div>
+      <div id="sdr-ch-agend" style="height:230px"></div>
+    </div>
+  </div>
+
+  <!-- Gráficos: por fonte + por hunter -->
+  <div class="sdr-g2">
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up · por fonte</div>
+      <div class="ps">Últimos 7 dias úteis · qual origem compareceu mais às reuniões</div>
+      <div id="sdr-ch-fonte" style="height:200px"></div>
+    </div>
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up · por hunter</div>
+      <div class="ps">Últimos 7 dias úteis · reuniões do hunter agendadas pela SDR</div>
+      <div id="sdr-ch-hunter" style="height:200px"></div>
+    </div>
+  </div>
+
+  <!-- Backlog -->
+  <div class="panel" style="padding:0;overflow:hidden">
+    <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
+      <div class="pt"><div class="ptb" style="background:var(--rd)"></div>Precisa de atenção agora</div>
+      <div class="ps">Pontos prioritários para a SDR hoje</div>
+    </div>
+    <div id="sdr-backlog"></div>
+  </div>
+
+</div><!-- /pane-sdr -->
+
 </div><!-- /wrap -->
 <script src="/js/core.js"></script>
 <script src="/js/comercial.js"></script>
 <script src="/js/acompanhamento.js"></script>
 <script src="/js/marketing.js"></script>
+<script src="/js/sdr.js"></script>
 </body></html>
