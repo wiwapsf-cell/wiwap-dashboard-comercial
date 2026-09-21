@@ -553,7 +553,6 @@ function renderSDRAgendChart() {
   const agendA = mets.map(m => m.agendGerados);
   const ref    = sdrDiaRef();
 
-  chart.setOption({
   const totalPts2  = labels.length;
   const showPts2   = Math.min(14, totalPts2);
   const zStart2    = totalPts2 > showPts2 ? Math.round((1 - showPts2 / totalPts2) * 100) : 0;
