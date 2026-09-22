@@ -207,6 +207,10 @@ function renderSDR() {
   renderSDRShowupChart();
   renderSDRAgendChart();
   renderSDRFonteHunter();
+  renderSDRLigacoes();
+  renderSDRTempo();
+  renderSDRHeatmap();
+  renderSDRSegmentos();
   setTimeout(resizeVisible, 80);
 }
 
@@ -778,4 +782,265 @@ function renderSDRBacklog() {
       <div class="sdr-bl-val ${it.cls}">${it.val}</div>
     </div>
   `).join('');
+}
+
+// ── MAPA DE VALORES: resultado_ligacao_sdr ──────────────────────
+const SDR_CALL_MAP = {
+  '12258': 'Atendeu — agendou',
+  '12260': 'Atendeu — não agendou',
+  '12262': 'Não atendeu',
+  '12264': 'Caixa postal',
+  '12266': 'Número errado',
+};
+const SDR_CALL_COLORS = {
+  'Atendeu — agendou':    '#059669',
+  'Atendeu — não agendou': '#00a0a3',
+  'Não atendeu':          '#d97706',
+  'Caixa postal':         '#94a3b8',
+  'Número errado':        '#dc2626',
+};
+
+function sdrResolveCall(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  return SDR_CALL_MAP[s] || s;
+}
+
+// ── LIGAÇÕES SDR ─────────────────────────────────────────────────
+function renderSDRLigacoes() {
+  const kpisEl = document.getElementById('sdr-ligacoes-kpis');
+  const chart  = ec('sdr-ch-ligacoes');
+  if (!kpisEl || !chart) return;
+
+  const recs = flowRecords.filter(r => inPeriod(r.criado_em) && r.resultado_ligacao_sdr);
+  const total = recs.length;
+
+  const counts = {};
+  Object.values(SDR_CALL_MAP).forEach(v => { counts[v] = 0; });
+  recs.forEach(r => {
+    const v = sdrResolveCall(r.resultado_ligacao_sdr);
+    if (v && counts[v] !== undefined) counts[v]++;
+  });
+
+  const sucesso = (counts['Atendeu — agendou'] || 0);
+  const atendeu = sucesso + (counts['Atendeu — não agendou'] || 0);
+  const taxaSucesso = total > 0 ? (sucesso / total * 100).toFixed(1) : '—';
+  const taxaAtendeu = total > 0 ? (atendeu / total * 100).toFixed(1) : '—';
+
+  // KPIs inline
+  const kpiData = [
+    { lbl: 'Total ligações', val: total, sub: 'no período', color: 'var(--navy)' },
+    { lbl: 'Atenderam', val: atendeu, sub: taxaAtendeu !== '—' ? taxaAtendeu + '%' : '—', color: 'var(--teal)' },
+    { lbl: 'Agendou (sucesso)', val: sucesso, sub: taxaSucesso !== '—' ? taxaSucesso + '%' : '—', color: 'var(--gr)' },
+    { lbl: 'Não atendeu', val: counts['Não atendeu'] + counts['Caixa postal'], sub: 'sem resposta + cx postal', color: 'var(--or)' },
+    { lbl: 'Número errado', val: counts['Número errado'], sub: 'lead inválido', color: 'var(--rd)' },
+  ];
+
+  kpisEl.innerHTML = kpiData.map((k, i) => `
+    <div style="padding:12px 16px;border-right:1px solid var(--border2);${i===4?'border-right:none':''}">
+      <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">${k.lbl}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:${k.color};line-height:1">${k.val}</div>
+      <div style="font-size:10.5px;color:var(--muted);margin-top:3px">${k.sub}</div>
+    </div>`).join('');
+
+  if (total === 0) {
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Nenhuma ligação registrada no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
+    return;
+  }
+
+  const labels = Object.keys(counts);
+  const vals   = labels.map(l => counts[l]);
+  const colors = labels.map(l => SDR_CALL_COLORS[l] || '#94a3b8');
+
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
+    grid: { left: 140, right: 20, top: 12, bottom: 12 },
+    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    yAxis: { type: 'category', data: labels, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [{
+      type: 'bar', barMaxWidth: 18, itemStyle: { borderRadius: [0,3,3,0] },
+      data: vals.map((v, i) => ({ value: v, itemStyle: { color: colors[i] } })),
+      label: { show: true, position: 'right', formatter: p => {
+        const pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
+        return p.value + '  ' + pct + '%';
+      }, fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 600 }
+    }]
+  }, true);
+}
+
+// ── TEMPO DE AÇÃO DA SDR ─────────────────────────────────────────
+function renderSDRTempo() {
+  const chart = ec('sdr-ch-tempo');
+  if (!chart) return;
+
+  // Leads com criado_em e dt_msg_wpp_hunter no período
+  const recs = flowRecords.filter(r =>
+    inPeriod(r.criado_em) && r.dt_msg_wpp_hunter && r.criado_em
+  );
+
+  if (recs.length === 0) {
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados de tempo no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
+    return;
+  }
+
+  // Calcula diferença em horas para cada lead
+  const diffs = recs.map(r => {
+    const criado = new Date(r.criado_em + 'T00:00:00');
+    const contato = new Date(r.dt_msg_wpp_hunter + 'T00:00:00');
+    const h = (contato - criado) / 3600000;
+    return h >= 0 ? h : null;
+  }).filter(h => h !== null && h <= 72); // exclui outliers >3 dias
+
+  if (diffs.length === 0) { chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true); return; }
+
+  const avg = +(diffs.reduce((s, h) => s + h, 0) / diffs.length).toFixed(1);
+  const med = diffs.slice().sort((a,b)=>a-b)[Math.floor(diffs.length/2)];
+
+  // Histograma: buckets 0-4h, 4-8h, 8-12h, 12-24h, 24-48h, 48-72h
+  const buckets = ['0–4h','4–8h','8–12h','12–24h','24–48h','48–72h'];
+  const limits  = [4, 8, 12, 24, 48, 72];
+  const bCount  = new Array(6).fill(0);
+  diffs.forEach(h => { for (let i = 0; i < limits.length; i++) { if (h < limits[i]) { bCount[i]++; break; } } });
+
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
+    grid: { left: 36, right: 20, top: 40, bottom: 24 },
+    graphic: [
+      { type: 'text', left: 16, top: 10, style: { text: `Média: ${avg}h`, fill: '#003462', fontSize: 12, fontWeight: 700, fontFamily: 'Plus Jakarta Sans' } },
+      { type: 'text', right: 16, top: 10, style: { text: `Mediana: ${med.toFixed(1)}h  ·  ${diffs.length} leads`, fill: '#64748b', fontSize: 11, fontFamily: 'Plus Jakarta Sans' } },
+    ],
+    xAxis: { type: 'category', data: buckets, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false } },
+    yAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [{
+      type: 'bar', barMaxWidth: 36,
+      data: bCount.map((v, i) => ({ value: v, itemStyle: { color: i === 0 ? '#059669' : i <= 1 ? '#00a0a3' : i <= 2 ? '#d97706' : '#dc2626', borderRadius: [3,3,0,0] } })),
+      label: { show: true, position: 'top', formatter: p => p.value || '', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700, color: '#1e293b' }
+    }]
+  }, true);
+}
+
+// ── HEATMAP HORÁRIO DE ENTRADA DOS LEADS ─────────────────────────
+function renderSDRHeatmap() {
+  const chart = ec('sdr-ch-heatmap');
+  if (!chart) return;
+
+  const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  const faixas = ['00–06h','06–08h','08–10h','10–12h','12–14h','14–16h','16–18h','18–20h','20–24h'];
+  const faixaLimites = [6, 8, 10, 12, 14, 16, 18, 20, 24];
+
+  // Conta leads por dia da semana × faixa horária
+  const matrix = {}; // key: "dow_faixa" → count
+  const recs = flowRecords.filter(r => inPeriod(r.criado_em) && r.criado_em);
+
+  // Como criado_em é só data (sem hora), vamos usar a data e contar por dia da semana
+  // Para hora, precisaríamos do campo com hora — vamos contar só por dia da semana
+  // e mostrar distribuição semanal
+  const dowCount = new Array(7).fill(0);
+  recs.forEach(r => {
+    const d = new Date(r.criado_em + 'T12:00:00');
+    const dow = (d.getDay() + 6) % 7; // 0=Seg, ..., 6=Dom
+    dowCount[dow]++;
+  });
+
+  // Como não temos hora no campo criado_em da planilha atual,
+  // mostrar distribuição por dia da semana como barras horizontais
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1, formatter: p => `<b>${p[0].axisValue}</b><br/>Leads: <b>${p[0].value}</b>` },
+    grid: { left: 46, right: 20, top: 10, bottom: 10 },
+    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    yAxis: { type: 'category', data: dias, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+    series: [{
+      type: 'bar', barMaxWidth: 20, itemStyle: { borderRadius: [0,3,3,0] },
+      data: dowCount.map((v, i) => ({
+        value: v,
+        itemStyle: { color: v === Math.max(...dowCount) ? '#003462' : `rgba(0,160,163,${0.3 + 0.7 * v / (Math.max(...dowCount) || 1)})` }
+      })),
+      label: { show: true, position: 'right', formatter: p => p.value || '', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 600 }
+    }]
+  }, true);
+}
+
+// ── SEGMENTOS NO PIPELINE ─────────────────────────────────────────
+function renderSDRSegmentos() {
+  const chart = ec('sdr-ch-segmentos');
+  if (!chart) return;
+
+  // Normaliza segmento (junta dropdown + campo aberto)
+  function normSeg(r) {
+    const v = (r.segmento_loja || r.segmento_aberto || '').trim().toLowerCase();
+    if (!v) return 'Não informado';
+    if (/celul|phone|cell|mobi/i.test(v)) return 'Celular';
+    if (/móv|mov|furni/i.test(v)) return 'Móveis';
+    if (/ótic|otic|óculo|oculo|eyew/i.test(v)) return 'Óculos';
+    if (/eletr/i.test(v)) return 'Eletrônicos';
+    if (/eletrodom/i.test(v)) return 'Eletrodomésticos';
+    if (/infor|comput/i.test(v)) return 'Informática';
+    if (/moda|roupa|vestu/i.test(v)) return 'Moda';
+    if (/tim\b|vivo|claro|oi\b|telecom/i.test(v)) return 'Telecom';
+    return 'Outros';
+  }
+
+  // Etapas relevantes (agrupadas)
+  const ETAPA_GRUPO = {
+    'Novos Leads': 'Novos Leads',
+    'Msg. Wpp Hunter': 'Contato Ativo',
+    'Reunião Agendada': 'Reunião Agendada',
+    'Show-up': 'Show-up',
+    'Interação': 'Interação',
+    'Nutrição': 'Nutrição',
+    'Negociação Quente': 'Neg. Quente',
+    'Pagamento Recebido': 'Pagamento',
+    'Negócio Perdido': 'Perdido',
+  };
+  const ETAPA_CORES = {
+    'Novos Leads':      '#94a3b8',
+    'Contato Ativo':    '#003462',
+    'Reunião Agendada': '#00a0a3',
+    'Show-up':          '#14c0c4',
+    'Interação':        '#f59e0b',
+    'Nutrição':         '#8b5cf6',
+    'Neg. Quente':      '#f97316',
+    'Pagamento':        '#059669',
+    'Perdido':          '#dc2626',
+  };
+  const ETAPAS_ORDER = Object.values(ETAPA_GRUPO).filter((v,i,a)=>a.indexOf(v)===i);
+
+  const recs = flowRecords.filter(r => inPeriod(r.criado_em));
+
+  // Agrupa por segmento → etapa
+  const data = {}; // seg → { etapa: count }
+  recs.forEach(r => {
+    const seg = normSeg(r);
+    const etapa = ETAPA_GRUPO[r.etapa] || r.etapa || 'Outros';
+    if (!data[seg]) data[seg] = {};
+    if (!data[seg][etapa]) data[seg][etapa] = 0;
+    data[seg][etapa]++;
+  });
+
+  const segs = Object.keys(data).sort((a,b) => {
+    const totA = Object.values(data[a]).reduce((s,v)=>s+v,0);
+    const totB = Object.values(data[b]).reduce((s,v)=>s+v,0);
+    return totB - totA;
+  });
+
+  if (segs.length === 0) {
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados de segmento no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
+    return;
+  }
+
+  const series = ETAPAS_ORDER.map(etapa => ({
+    name: etapa, type: 'bar', stack: 'total',
+    itemStyle: { color: ETAPA_CORES[etapa] || '#94a3b8' },
+    data: segs.map(s => data[s][etapa] || 0),
+    label: { show: false }
+  }));
+
+  chart.setOption({
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
+    legend: { data: ETAPAS_ORDER, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#4a5468' }, bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 10 },
+    grid: { left: 90, right: 16, top: 12, bottom: 40 },
+    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+    yAxis: { type: 'category', data: segs, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+    series
+  }, true);
 }
