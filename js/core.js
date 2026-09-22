@@ -164,6 +164,25 @@ function computeRange(){
 }
 function inPeriod(dateStr){ if(!dateStr)return false; const{start,end}=computeRange(); return dateStr>=start&&dateStr<=end; }
 
+// ── Correção de fuso: Bitrix grava DATE_CREATE em UTC ────────────
+// criado_em (data) + criado_hora (hora) chegam crus em UTC do n8n.
+// Estas funções reconstroem o datetime e convertem para BRT (UTC-3),
+// garantindo que TODOS os gráficos usem o mesmo dia/hora reais.
+function criadoBRT(r){
+  if(!r || !r.criado_em) return null;
+  const hUTCraw = r.criado_hora ? parseInt(String(r.criado_hora).split(':')[0], 10) : 12;
+  const hUTC = isNaN(hUTCraw) ? 12 : hUTCraw;
+  const utc = new Date(r.criado_em + 'T' + String(hUTC).padStart(2,'0') + ':00:00Z');
+  const brt = new Date(utc.getTime() - 3 * 3600000);
+  return brt.toISOString().slice(0, 10);
+}
+function horaBRT(r){
+  if(!r || !r.criado_hora) return null;
+  const hUTC = parseInt(String(r.criado_hora).split(':')[0], 10);
+  if(isNaN(hUTC)) return null;
+  return ((hUTC - 3) + 24) % 24;
+}
+
 // ===== FONTES =====
 function simplifyFonte(f){
   if(!f)return'Sem fonte';
