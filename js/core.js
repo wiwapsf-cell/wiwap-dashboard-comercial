@@ -85,7 +85,7 @@ const COL_MAP={
   criado_em:['Criado no'], responsavel:['Pessoa responsável'], etapa:['Etapa'], fonte:['Fonte de Lead'],
   nome_card:['Nome'], segmento_loja:['Qual o Segmento da Sua Loja?'], segmento_aberto:['Qual o segmento da sua loja? (Campo Aberto Tráfego):'],
   cidade:['Cidade:'], estado_raw:['Estado:'], motivo_descarte:['Motivo de Descarte:'],
-  dt_msg_wpp_hunter:['dt_<msg._wpp_hunter>_first','dt_<msg_wpp_hunter>_first'],
+  criado_hora: ['Hora criacao', 'Hora criação'],
   dt_reuniao_agendada:['dt_<reuniao_agendada)_first','dt_<reuniao_agendada>_first'],
   horario_agenda:['Horário de Agenda (Opções):'], dt_interacao:['dt_<interacao>_first'],
   dt_pagamento:['dt_<pagamento_recebido>_first'], ultima_interacao:['Qual foi a última interação?'],
