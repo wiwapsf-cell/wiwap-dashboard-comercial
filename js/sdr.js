@@ -995,15 +995,25 @@ function renderSDRHeatmap() {
   const FAIXAS = ['00–06h','06–08h','08–10h','10–12h','12–14h','14–16h','16–18h','18–20h','20–24h'];
   const FAIXA_LIMITES = [6, 8, 10, 12, 14, 16, 18, 20, 24];
 
-  const recs = flowRecords.filter(r => inPeriod(r.criado_em) && r.criado_em);
+  // Filtra registros com criado_em válido (ainda em UTC do Bitrix)
+  // A conversão para BRT é feita dentro do loop para acertar data E hora juntas
+  const recs = flowRecords.filter(r => r.criado_em);
+
+  // Helper: converte criado_em (data UTC) + criado_hora (hora UTC) → Date em BRT
+  function dtBRT(r) {
+    const hUTC = r.criado_hora ? parseInt(r.criado_hora.split(':')[0], 10) : 12;
+    const utc = new Date(r.criado_em + 'T' + String(isNaN(hUTC) ? 12 : hUTC).padStart(2,'0') + ':00:00Z');
+    return new Date(utc.getTime() - 3 * 3600000); // UTC-3
+  }
 
   // Verifica se há hora disponível
   const temHora = recs.some(r => r.criado_hora);
 
   if (!temHora) {
-    // Fallback: só dia da semana
+    // Fallback: só dia da semana (sem hora → usa criado_em direto)
     const dowCount = new Array(7).fill(0);
     recs.forEach(r => {
+      if (!inPeriod(r.criado_em)) return;
       const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
       dowCount[dow]++;
     });
@@ -1025,12 +1035,12 @@ function renderSDRHeatmap() {
 
   recs.forEach(r => {
     if (!r.criado_hora) return;
-    const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
-    const [hStr] = r.criado_hora.split(':');
-    let h = parseInt(hStr, 10);
-    if (isNaN(h)) return;
-    h = ((h - 3) + 24) % 24; // UTC → UTC-3 (Brasília)
-    const fi = FAIXA_LIMITES.findIndex(lim => h < lim);
+    const dt = dtBRT(r);                              // datetime completo em BRT
+    const dateBRT = dt.toISOString().slice(0, 10);    // data real em BRT
+    if (!inPeriod(dateBRT)) return;                   // filtra pelo dia correto em BRT
+    const hBRT = dt.getUTCHours();                    // hora em BRT
+    const dow  = (dt.getUTCDay() + 6) % 7;           // dia da semana em BRT
+    const fi   = FAIXA_LIMITES.findIndex(lim => hBRT < lim);
     if (fi >= 0) matrix[fi][dow]++;
   });
 
