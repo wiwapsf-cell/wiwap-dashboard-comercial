@@ -632,6 +632,10 @@ function renderSDRAgendChart() {
 // ── GRÁFICO: FONTE E HUNTER ──────────────────────────────────────
 function renderSDRFonteHunter() {
   const dias7 = sdrUltimos7d();
+  // Label do período para subtítulo nos gráficos
+  const d0 = dias7[dias7.length - 1], d1 = dias7[0];
+  const fmtD = s => { const [y,m,d] = s.split('-'); return `${d}/${m}`; };
+  const periodoLabel = `${fmtD(d0)} – ${fmtD(d1)}`;
 
   const recs7d = flowRecords.filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
 
@@ -639,7 +643,6 @@ function renderSDRFonteHunter() {
   const hunterMap = {};
 
   recs7d.forEach(r => {
-    // simplifyFonte está definida no core.js (carregado antes)
     const f  = simplifyFonte(r.fonte);
     const h  = r.hunter || 'Sem hunter';
     const su = sdrShowup(r);
@@ -649,47 +652,69 @@ function renderSDRFonteHunter() {
     hunterMap[h].ag++; if (su) hunterMap[h].su++;
   });
 
-  // Fonte chart
+  // ── FONTE ────────────────────────────────────────────────────────
   const fonteSorted = Object.entries(fonteMap)
-    .filter(([,v]) => v.ag >= 2)
-    .map(([k,v]) => ({ name: k, pct: +(v.su / v.ag * 100).toFixed(1) }))
+    .filter(([,v]) => v.ag >= 3)
+    .map(([k,v]) => ({ name: k, ag: v.ag, su: v.su, pct: +(v.su / v.ag * 100).toFixed(1) }))
     .sort((a,b) => a.pct - b.pct);
 
   const chFonte = ec('sdr-ch-fonte');
   if (chFonte && fonteSorted.length > 0) {
     chFonte.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
-      grid: { left: 110, right: 52, top: 6, bottom: 8 },
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
+        backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
+        formatter: p => {
+          const d = fonteSorted.find(f => f.name === p[0].name) || fonteSorted[p[0].dataIndex];
+          return `<b>${p[0].name}</b><br/>Presentes: <b>${d.su}</b> de <b>${d.ag}</b> agendadas<br/>Show-up: <b>${p[0].value}%</b>`;
+        }
+      },
+      grid: { left: 120, right: 72, top: 6, bottom: 8 },
       xAxis: { type: 'value', max: 100, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-      yAxis: { type: 'category', data: fonteSorted.map(f => f.name), axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: { type: 'category', data: fonteSorted.map(f => f.name), axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500, width: 110, overflow: 'truncate' }, axisLine: { show: false }, axisTick: { show: false } },
       series: [{
-        type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0,3,3,0] },
-        data: fonteSorted.map(f => ({ value: f.pct, itemStyle: { color: f.pct >= 70 ? '#059669' : f.pct >= 55 ? '#d97706' : '#dc2626' } })),
-        label: { show: true, position: 'right', formatter: p => p.value + '%', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 700 }
+        type: 'bar', barMaxWidth: 18, itemStyle: { borderRadius: [0,3,3,0] },
+        data: fonteSorted.map(f => ({ value: f.pct, itemStyle: { color: f.pct >= 55 ? '#059669' : f.pct >= 42 ? '#d97706' : '#dc2626' } })),
+        label: { show: true, position: 'right', formatter: p => {
+          const d = fonteSorted[p.dataIndex];
+          return `{pct|${p.value}%}  {cnt|${d.su}/${d.ag}}`;
+        }, rich: { pct: { fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 700, color: '#1e293b' }, cnt: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' } } }
       }]
     }, true);
   } else if (chFonte) {
-    chFonte.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados suficientes', fill: '#94a3b8', fontSize: 12 } }] }, true);
+    chFonte.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados suficientes (mín. 3 agendamentos por fonte)', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
   }
 
-  // Hunter chart
+  // ── HUNTER ───────────────────────────────────────────────────────
   const HUNTERS_WL = typeof HUNTERS_WHITELIST !== 'undefined' ? HUNTERS_WHITELIST : Object.keys(hunterMap);
   const hunterSorted = HUNTERS_WL
     .filter(h => hunterMap[h] && hunterMap[h].ag > 0)
-    .map(h => ({ name: h.split(' ')[0], pct: +(hunterMap[h].su / hunterMap[h].ag * 100).toFixed(1) }))
+    .map(h => ({ name: h.split(' ')[0], fullName: h, ag: hunterMap[h].ag, su: hunterMap[h].su, pct: +(hunterMap[h].su / hunterMap[h].ag * 100).toFixed(1) }))
     .sort((a,b) => a.pct - b.pct);
 
   const chHunter = ec('sdr-ch-hunter');
   if (chHunter && hunterSorted.length > 0) {
     chHunter.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
-      grid: { left: 80, right: 52, top: 6, bottom: 8 },
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
+        backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
+        formatter: p => {
+          const d = hunterSorted[p[0].dataIndex];
+          return `<b>${d.fullName}</b><br/>Período: <b>${periodoLabel}</b><br/>Presentes: <b>${d.su}</b> de <b>${d.ag}</b> agendadas<br/>Show-up: <b>${p[0].value}%</b>`;
+        }
+      },
+      grid: { left: 80, right: 80, top: 6, bottom: 8 },
       xAxis: { type: 'value', max: 100, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-      yAxis: { type: 'category', data: hunterSorted.map(h => h.name), axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+      yAxis: { type: 'category', data: hunterSorted.map(h => h.name), axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 600 }, axisLine: { show: false }, axisTick: { show: false } },
       series: [{
-        type: 'bar', barMaxWidth: 16, itemStyle: { borderRadius: [0,3,3,0] },
-        data: hunterSorted.map(h => ({ value: h.pct, itemStyle: { color: h.pct >= 70 ? '#059669' : h.pct >= 55 ? '#d97706' : '#dc2626' } })),
-        label: { show: true, position: 'right', formatter: p => p.value + '%', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 700 }
+        type: 'bar', barMaxWidth: 20, itemStyle: { borderRadius: [0,3,3,0] },
+        data: hunterSorted.map(h => ({ value: h.pct, itemStyle: { color: h.pct >= 55 ? '#059669' : h.pct >= 42 ? '#d97706' : '#dc2626' } })),
+        label: { show: true, position: 'right', formatter: p => {
+          const d = hunterSorted[p.dataIndex];
+          return `{pct|${p.value}%}  {cnt|${d.su}/${d.ag}}`;
+        }, rich: { pct: { fontFamily: 'JetBrains Mono', fontSize: 11, fontWeight: 700, color: '#1e293b' }, cnt: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' } } }
       }]
     }, true);
   }
@@ -1033,14 +1058,21 @@ function renderSDRHeatmap() {
   // matrix[faixa][dow] = count
   const matrix = Array.from({ length: FAIXAS.length }, () => new Array(7).fill(0));
 
+  // Hora atual em BRT para bloquear horas futuras (independente de TZ do campo)
+  const _nowBRT = new Date(Date.now() - 3 * 3600000);
+  const _todayBRT = _nowBRT.toISOString().slice(0, 10);
+  const _nowHBRT  = _nowBRT.getUTCHours();
+
   recs.forEach(r => {
     if (!r.criado_hora) return;
-    const dt = dtBRT(r);                              // datetime completo em BRT
-    const dateBRT = dt.toISOString().slice(0, 10);    // data real em BRT
-    if (!inPeriod(dateBRT)) return;                   // filtra pelo dia correto em BRT
-    const hBRT = dt.getUTCHours();                    // hora em BRT
-    const dow  = (dt.getUTCDay() + 6) % 7;           // dia da semana em BRT
-    const fi   = FAIXA_LIMITES.findIndex(lim => hBRT < lim);
+    const dt = dtBRT(r);
+    const dateBRT = dt.toISOString().slice(0, 10);
+    if (!inPeriod(dateBRT)) return;
+    const hBRT = dt.getUTCHours();
+    // Guarda de segurança: nunca exibir hora futura para hoje
+    if (dateBRT === _todayBRT && hBRT > _nowHBRT) return;
+    const dow = (dt.getUTCDay() + 6) % 7;
+    const fi  = FAIXA_LIMITES.findIndex(lim => hBRT < lim);
     if (fi >= 0) matrix[fi][dow]++;
   });
 
