@@ -1028,26 +1028,20 @@ function renderSDRHeatmap() {
   const FAIXAS = ['00–06h','06–08h','08–10h','10–12h','12–14h','14–16h','16–18h','18–20h','20–24h'];
   const FAIXA_LIMITES = [6, 8, 10, 12, 14, 16, 18, 20, 24];
 
-  // Filtra registros com criado_em válido (ainda em UTC do Bitrix)
-  // A conversão para BRT é feita dentro do loop para acertar data E hora juntas
-  const recs = flowRecords.filter(r => r.criado_em);
+  // Usa os helpers globais do core.js (mesma lógica do KPI Leads Criados,
+  // do gráfico Agendamentos e de todos os outros pontos do dashboard)
+  const recs = flowRecords.filter(r => criadoBRT(r));
 
-  // Helper: converte criado_em (data UTC) + criado_hora (hora UTC) → Date em BRT
-  function dtBRT(r) {
-    const hUTC = r.criado_hora ? parseInt(r.criado_hora.split(':')[0], 10) : 12;
-    const utc = new Date(r.criado_em + 'T' + String(isNaN(hUTC) ? 12 : hUTC).padStart(2,'0') + ':00:00Z');
-    return new Date(utc.getTime() - 3 * 3600000); // UTC-3
-  }
-
-  // Verifica se há hora disponível
+  // Verifica se há hora disponível em ALGUM registro (para decidir o modo de exibição)
   const temHora = recs.some(r => r.criado_hora);
 
   if (!temHora) {
-    // Fallback: só dia da semana (sem hora → usa criado_em direto)
+    // Fallback: só dia da semana (nenhum registro tem hora — usa data BRT já corrigida)
     const dowCount = new Array(7).fill(0);
     recs.forEach(r => {
-      if (!inPeriod(r.criado_em)) return;
-      const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
+      const dateBRT = criadoBRT(r);
+      if (!inPeriod(dateBRT)) return;
+      const dow = (new Date(dateBRT + 'T12:00:00').getDay() + 6) % 7;
       dowCount[dow]++;
     });
     const maxV = Math.max(...dowCount, 1);
@@ -1072,14 +1066,15 @@ function renderSDRHeatmap() {
   const _nowHBRT  = _nowBRT.getUTCHours();
 
   recs.forEach(r => {
-    if (!r.criado_hora) return;
-    const dt = dtBRT(r);
-    const dateBRT = dt.toISOString().slice(0, 10);
+    const dateBRT = criadoBRT(r);
     if (!inPeriod(dateBRT)) return;
-    const hBRT = dt.getUTCHours();
+    // Leads sem hora registrada entram com fallback meio-dia (12h),
+    // igual ao KPI "Leads Criados" — garante que a soma do heatmap bata com o KPI
+    const hBRT = r.criado_hora ? horaBRT(r) : 12;
+    if (hBRT === null) return;
     // Guarda de segurança: nunca exibir hora futura para hoje
     if (dateBRT === _todayBRT && hBRT > _nowHBRT) return;
-    const dow = (dt.getUTCDay() + 6) % 7;
+    const dow = (new Date(dateBRT + 'T12:00:00').getDay() + 6) % 7;
     const fi  = FAIXA_LIMITES.findIndex(lim => hBRT < lim);
     if (fi >= 0) matrix[fi][dow]++;
   });
