@@ -894,37 +894,47 @@ function renderSDRTempo() {
     return;
   }
 
+  // Calcula diferença em HORAS entre criação e primeiro contato.
+  // criado_hora (já em UTC-3) refina o ponto de partida.
+  // Campos de contato são date-only → precisão ±12h por dia de diferença.
   const diffs = recs.map(r => {
-    const criado = new Date(r.criado_em + 'T12:00:00');
+    const horaCriacao = r.criado_hora ? (() => {
+      const h = parseInt(r.criado_hora.split(':')[0], 10);
+      return ((h - 3) + 24) % 24; // UTC → UTC-3
+    })() : 12; // fallback meio-dia
+    const criado = new Date(r.criado_em + 'T00:00:00');
+    criado.setHours(horaCriacao);
     const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada]
       .filter(Boolean)
-      .map(d => new Date(d + 'T12:00:00'));
+      .map(d => new Date(d + 'T12:00:00')); // contato sem hora → meio-dia
+    if (!datas.length) return null;
     const primeiro = new Date(Math.min(...datas));
-    const dias = Math.round((primeiro - criado) / 86400000);
-    return dias >= 0 ? dias : null;
-  }).filter(d => d !== null && d <= 30); // exclui outliers >30 dias
+    const horas = Math.round((primeiro - criado) / 3600000);
+    return horas >= 0 ? horas : null;
+  }).filter(h => h !== null && h <= 240); // exclui outliers >10 dias
 
   if (diffs.length === 0) {
     chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true);
     return;
   }
 
-  const avg  = +(diffs.reduce((s, d) => s + d, 0) / diffs.length).toFixed(1);
+  const avg  = Math.round(diffs.reduce((s, d) => s + d, 0) / diffs.length);
   const sorted = diffs.slice().sort((a, b) => a - b);
   const med  = sorted[Math.floor(sorted.length / 2)];
+  const fmtH = h => h < 24 ? `${h}h` : `${(h / 24).toFixed(1).replace('.', ',')}d`;
 
-  // Buckets em DIAS: mesmo dia, 1d, 2d, 3–5d, 6–10d, 11–30d
-  const buckets = ['Mesmo dia','1 dia','2 dias','3–5 dias','6–10 dias','11–30 dias'];
-  const limits  = [1, 2, 3, 6, 11, 31];
+  // Buckets em HORAS: < 24h · 24–48h · 48–72h · 3–5 dias · 5–10 dias · 10+ dias
+  const buckets = ['< 24h', '24–48h', '48–72h', '3–5 dias', '5–10 dias', '10+ dias'];
+  const limits  = [24, 48, 72, 120, 240, Infinity];
   const bCount  = new Array(6).fill(0);
-  diffs.forEach(d => {
+  diffs.forEach(h => {
     for (let i = 0; i < limits.length; i++) {
-      if (d < limits[i]) { bCount[i]++; break; }
+      if (h < limits[i]) { bCount[i]++; break; }
     }
   });
 
   const total = diffs.length;
-  const mesmoDiaPct = total > 0 ? (bCount[0] / total * 100).toFixed(0) : 0;
+  const ate24pct = total > 0 ? (bCount[0] / total * 100).toFixed(0) : 0;
 
   chart.setOption({
     tooltip: {
@@ -939,7 +949,7 @@ function renderSDRTempo() {
     grid: { left: 50, right: 20, top: 44, bottom: 24 },
     graphic: [
       { type: 'text', left: 14, top: 10, style: {
-        text: `Média: ${avg}d · Mediana: ${med}d · ${mesmoDiaPct}% contatados no mesmo dia`,
+        text: `Média: ${fmtH(avg)} · Mediana: ${fmtH(med)} · ${ate24pct}% contatados em < 24h`,
         fill: '#003462', fontSize: 11, fontWeight: 700, fontFamily: 'Plus Jakarta Sans'
       }},
       { type: 'text', right: 14, top: 10, style: {
@@ -1017,8 +1027,9 @@ function renderSDRHeatmap() {
     if (!r.criado_hora) return;
     const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
     const [hStr] = r.criado_hora.split(':');
-    const h = parseInt(hStr, 10);
+    let h = parseInt(hStr, 10);
     if (isNaN(h)) return;
+    h = ((h - 3) + 24) % 24; // UTC → UTC-3 (Brasília)
     const fi = FAIXA_LIMITES.findIndex(lim => h < lim);
     if (fi >= 0) matrix[fi][dow]++;
   });
