@@ -405,6 +405,38 @@
     </div>
   </div>
 
+  <!-- Ligações SDR -->
+  <div class="panel" style="margin-bottom:11px;padding:0;overflow:hidden">
+    <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Ligações SDR · resultado</div>
+      <div class="ps">Resultado das ligações feitas pela SDR no período · campo "Resultado das ligações (SDR)"</div>
+    </div>
+    <div id="sdr-ligacoes-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-bottom:1px solid var(--border)"></div>
+    <div id="sdr-ch-ligacoes" style="height:180px"></div>
+  </div>
+
+  <!-- Tempo de ação + Heatmap -->
+  <div class="sdr-g2">
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Tempo de ação da SDR</div>
+      <div class="ps">Média de horas entre criação do lead e primeiro contato (entrada em Msg. Wpp Hunter)</div>
+      <div id="sdr-ch-tempo" style="height:200px"></div>
+    </div>
+    <div class="panel">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Horário de entrada dos leads · semana</div>
+      <div class="ps">Volume por faixa de 2h e dia da semana · cor mais intensa = mais leads no período</div>
+      <div id="sdr-ch-heatmap" style="height:200px"></div>
+    </div>
+  </div>
+
+  <!-- Segmentos no pipeline -->
+  <div class="panel" style="margin-bottom:11px;padding:0;overflow:hidden">
+    <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Segmentos · situação no pipeline</div>
+      <div class="ps">Leads criados no período por segmento e etapa atual · barras empilhadas</div>
+    </div>
+    <div id="sdr-ch-segmentos" style="height:300px"></div>
+  </div>
 
 </div><!-- /pane-sdr -->
 
