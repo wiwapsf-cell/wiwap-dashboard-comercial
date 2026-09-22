@@ -80,10 +80,18 @@ function sdrDiasPeriodo() {
   const { start, end } = computeRange();
   const s = new Date(start + 'T12:00:00');
   const e = new Date(end + 'T12:00:00');
-  const diffDays = Math.round((e - s) / 86400000) + 1;
 
-  if (diffDays <= 14) {
-    // dia a dia — exclui fins de semana (show-up não acontece sáb/dom)
+  // Conta dias úteis no período (Seg–Sex)
+  let bizDays = 0;
+  const tmp = new Date(s);
+  while (tmp <= e) {
+    const dow = tmp.getDay();
+    if (dow !== 0 && dow !== 6) bizDays++;
+    tmp.setDate(tmp.getDate() + 1);
+  }
+
+  if (bizDays <= 14) {
+    // dia a dia — exclui fins de semana
     const dias = [];
     let d = new Date(s);
     while (d <= e) {
@@ -92,7 +100,7 @@ function sdrDiasPeriodo() {
       d.setDate(d.getDate() + 1);
     }
     return { dias, granular: 'dia' };
-  } else if (diffDays <= 90) {
+  } else if (bizDays <= 65) {
     // semanas: agrupa por semana (segunda)
     const semanas = {};
     let d = new Date(s);
@@ -874,42 +882,49 @@ function renderSDRTempo() {
   const chart = ec('sdr-ch-tempo');
   if (!chart) return;
 
-  // Primeiro contato = MIN(dt_msg_wpp_hunter, dt_reuniao_agendada)
-  // Exclui leads sem nenhum dos dois
+  // Primeiro contato real = MIN(dt_msg_wpp_hunter, dt_reuniao_agendada)
+  // Como os campos são só data (sem hora), medimos em DIAS corridos
   const recs = flowRecords.filter(r =>
     inPeriod(r.criado_em) && r.criado_em &&
     (r.dt_msg_wpp_hunter || r.dt_reuniao_agendada)
   );
 
   if (recs.length === 0) {
-    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados de tempo no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
     return;
   }
 
-  // Para cada lead, pega a data de primeiro contato (a menor das duas)
   const diffs = recs.map(r => {
-    const criado = new Date(r.criado_em + 'T00:00:00');
+    const criado = new Date(r.criado_em + 'T12:00:00');
     const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada]
       .filter(Boolean)
-      .map(d => new Date(d + 'T00:00:00'));
-    const primeiroContato = new Date(Math.min(...datas));
-    const h = (primeiroContato - criado) / 3600000;
-    return h >= 0 ? h : null;
-  }).filter(h => h !== null && h <= 72); // exclui outliers >3 dias úteis
+      .map(d => new Date(d + 'T12:00:00'));
+    const primeiro = new Date(Math.min(...datas));
+    const dias = Math.round((primeiro - criado) / 86400000);
+    return dias >= 0 ? dias : null;
+  }).filter(d => d !== null && d <= 30); // exclui outliers >30 dias
 
   if (diffs.length === 0) {
     chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true);
     return;
   }
 
-  const avg = +(diffs.reduce((s, h) => s + h, 0) / diffs.length).toFixed(1);
-  const med = diffs.slice().sort((a,b)=>a-b)[Math.floor(diffs.length/2)];
+  const avg  = +(diffs.reduce((s, d) => s + d, 0) / diffs.length).toFixed(1);
+  const sorted = diffs.slice().sort((a, b) => a - b);
+  const med  = sorted[Math.floor(sorted.length / 2)];
 
-  // Histograma: 0-4h, 4-8h, 8-12h, 12-24h, 24-48h, 48-72h
-  const buckets = ['0–4h','4–8h','8–12h','12–24h','24–48h','48–72h'];
-  const limits  = [4, 8, 12, 24, 48, 72];
+  // Buckets em DIAS: mesmo dia, 1d, 2d, 3–5d, 6–10d, 11–30d
+  const buckets = ['Mesmo dia','1 dia','2 dias','3–5 dias','6–10 dias','11–30 dias'];
+  const limits  = [1, 2, 3, 6, 11, 31];
   const bCount  = new Array(6).fill(0);
-  diffs.forEach(h => { for (let i = 0; i < limits.length; i++) { if (h < limits[i]) { bCount[i]++; break; } } });
+  diffs.forEach(d => {
+    for (let i = 0; i < limits.length; i++) {
+      if (d < limits[i]) { bCount[i]++; break; }
+    }
+  });
+
+  const total = diffs.length;
+  const mesmoDiaPct = total > 0 ? (bCount[0] / total * 100).toFixed(0) : 0;
 
   chart.setOption({
     tooltip: {
@@ -917,21 +932,46 @@ function renderSDRTempo() {
       textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
       backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
       formatter: p => {
-        const pct = diffs.length > 0 ? (p[0].value / diffs.length * 100).toFixed(1) : 0;
+        const pct = total > 0 ? (p[0].value / total * 100).toFixed(1) : 0;
         return `<b>${p[0].axisValue}</b><br/>Leads: <b>${p[0].value}</b> (${pct}%)`;
       }
     },
-    grid: { left: 36, right: 20, top: 40, bottom: 24 },
+    grid: { left: 50, right: 20, top: 44, bottom: 24 },
     graphic: [
-      { type: 'text', left: 16, top: 10, style: { text: `Média: ${avg}h  ·  MIN(Msg WPP Hunter, Reunião Agendada)`, fill: '#003462', fontSize: 11, fontWeight: 700, fontFamily: 'Plus Jakarta Sans' } },
-      { type: 'text', right: 16, top: 10, style: { text: `Mediana: ${med.toFixed(1)}h  ·  ${diffs.length} leads`, fill: '#64748b', fontSize: 11, fontFamily: 'Plus Jakarta Sans' } },
+      { type: 'text', left: 14, top: 10, style: {
+        text: `Média: ${avg}d · Mediana: ${med}d · ${mesmoDiaPct}% contatados no mesmo dia`,
+        fill: '#003462', fontSize: 11, fontWeight: 700, fontFamily: 'Plus Jakarta Sans'
+      }},
+      { type: 'text', right: 14, top: 10, style: {
+        text: `${total} leads com 1º contato registrado`,
+        fill: '#64748b', fontSize: 11, fontFamily: 'Plus Jakarta Sans'
+      }},
     ],
-    xAxis: { type: 'category', data: buckets, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false } },
-    yAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLine: { show: false }, axisTick: { show: false } },
+    xAxis: {
+      type: 'category', data: buckets,
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' },
+      axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' },
+      splitLine: { lineStyle: { color: '#f1f5f9' } },
+      axisLine: { show: false }, axisTick: { show: false }
+    },
     series: [{
-      type: 'bar', barMaxWidth: 36,
-      data: bCount.map((v, i) => ({ value: v, itemStyle: { color: i === 0 ? '#059669' : i <= 1 ? '#00a0a3' : i <= 2 ? '#d97706' : '#dc2626', borderRadius: [3,3,0,0] } })),
-      label: { show: true, position: 'top', formatter: p => p.value || '', fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700, color: '#1e293b' }
+      type: 'bar', barMaxWidth: 40,
+      data: bCount.map((v, i) => ({
+        value: v,
+        itemStyle: {
+          color: i === 0 ? '#059669' : i <= 1 ? '#00a0a3' : i <= 2 ? '#d97706' : '#dc2626',
+          borderRadius: [3,3,0,0]
+        }
+      })),
+      label: {
+        show: true, position: 'top',
+        formatter: p => p.value > 0 ? p.value : '',
+        fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700, color: '#1e293b'
+      }
     }]
   }, true);
 }
@@ -1026,7 +1066,7 @@ function renderSDRHeatmap() {
         show: true,
         formatter: p => p.data[2] > 0 ? String(p.data[2]) : '',
         fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700,
-        color: '#1e293b'
+        color: (params) => params.data[2] > maxVal * 0.55 ? '#ffffff' : '#1e293b'
       },
       itemStyle: { borderWidth: 2, borderColor: '#fff', borderRadius: 3 },
       emphasis: { itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' } }
