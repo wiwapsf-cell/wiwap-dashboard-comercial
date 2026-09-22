@@ -83,11 +83,12 @@ function sdrDiasPeriodo() {
   const diffDays = Math.round((e - s) / 86400000) + 1;
 
   if (diffDays <= 14) {
-    // dia a dia (inclui fins de semana se tiver dado)
+    // dia a dia — exclui fins de semana (show-up não acontece sáb/dom)
     const dias = [];
     let d = new Date(s);
     while (d <= e) {
-      dias.push(d.toISOString().slice(0, 10));
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) dias.push(d.toISOString().slice(0, 10));
       d.setDate(d.getDate() + 1);
     }
     return { dias, granular: 'dia' };
@@ -873,9 +874,11 @@ function renderSDRTempo() {
   const chart = ec('sdr-ch-tempo');
   if (!chart) return;
 
-  // Leads com criado_em e dt_msg_wpp_hunter no período
+  // Primeiro contato = MIN(dt_msg_wpp_hunter, dt_reuniao_agendada)
+  // Exclui leads sem nenhum dos dois
   const recs = flowRecords.filter(r =>
-    inPeriod(r.criado_em) && r.dt_msg_wpp_hunter && r.criado_em
+    inPeriod(r.criado_em) && r.criado_em &&
+    (r.dt_msg_wpp_hunter || r.dt_reuniao_agendada)
   );
 
   if (recs.length === 0) {
@@ -883,30 +886,44 @@ function renderSDRTempo() {
     return;
   }
 
-  // Calcula diferença em horas para cada lead
+  // Para cada lead, pega a data de primeiro contato (a menor das duas)
   const diffs = recs.map(r => {
     const criado = new Date(r.criado_em + 'T00:00:00');
-    const contato = new Date(r.dt_msg_wpp_hunter + 'T00:00:00');
-    const h = (contato - criado) / 3600000;
+    const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada]
+      .filter(Boolean)
+      .map(d => new Date(d + 'T00:00:00'));
+    const primeiroContato = new Date(Math.min(...datas));
+    const h = (primeiroContato - criado) / 3600000;
     return h >= 0 ? h : null;
-  }).filter(h => h !== null && h <= 72); // exclui outliers >3 dias
+  }).filter(h => h !== null && h <= 72); // exclui outliers >3 dias úteis
 
-  if (diffs.length === 0) { chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true); return; }
+  if (diffs.length === 0) {
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true);
+    return;
+  }
 
   const avg = +(diffs.reduce((s, h) => s + h, 0) / diffs.length).toFixed(1);
   const med = diffs.slice().sort((a,b)=>a-b)[Math.floor(diffs.length/2)];
 
-  // Histograma: buckets 0-4h, 4-8h, 8-12h, 12-24h, 24-48h, 48-72h
+  // Histograma: 0-4h, 4-8h, 8-12h, 12-24h, 24-48h, 48-72h
   const buckets = ['0–4h','4–8h','8–12h','12–24h','24–48h','48–72h'];
   const limits  = [4, 8, 12, 24, 48, 72];
   const bCount  = new Array(6).fill(0);
   diffs.forEach(h => { for (let i = 0; i < limits.length; i++) { if (h < limits[i]) { bCount[i]++; break; } } });
 
   chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
+    tooltip: {
+      trigger: 'axis', axisPointer: { type: 'shadow' },
+      textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
+      backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
+      formatter: p => {
+        const pct = diffs.length > 0 ? (p[0].value / diffs.length * 100).toFixed(1) : 0;
+        return `<b>${p[0].axisValue}</b><br/>Leads: <b>${p[0].value}</b> (${pct}%)`;
+      }
+    },
     grid: { left: 36, right: 20, top: 40, bottom: 24 },
     graphic: [
-      { type: 'text', left: 16, top: 10, style: { text: `Média: ${avg}h`, fill: '#003462', fontSize: 12, fontWeight: 700, fontFamily: 'Plus Jakarta Sans' } },
+      { type: 'text', left: 16, top: 10, style: { text: `Média: ${avg}h  ·  MIN(Msg WPP Hunter, Reunião Agendada)`, fill: '#003462', fontSize: 11, fontWeight: 700, fontFamily: 'Plus Jakarta Sans' } },
       { type: 'text', right: 16, top: 10, style: { text: `Mediana: ${med.toFixed(1)}h  ·  ${diffs.length} leads`, fill: '#64748b', fontSize: 11, fontFamily: 'Plus Jakarta Sans' } },
     ],
     xAxis: { type: 'category', data: buckets, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' }, axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false } },
@@ -919,128 +936,192 @@ function renderSDRTempo() {
   }, true);
 }
 
-// ── HEATMAP HORÁRIO DE ENTRADA DOS LEADS ─────────────────────────
+// ── HEATMAP HORA × DIA DA SEMANA ─────────────────────────────────
 function renderSDRHeatmap() {
   const chart = ec('sdr-ch-heatmap');
   if (!chart) return;
 
-  const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-  const faixas = ['00–06h','06–08h','08–10h','10–12h','12–14h','14–16h','16–18h','18–20h','20–24h'];
-  const faixaLimites = [6, 8, 10, 12, 14, 16, 18, 20, 24];
+  const DIAS  = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  const FAIXAS = ['00–06h','06–08h','08–10h','10–12h','12–14h','14–16h','16–18h','18–20h','20–24h'];
+  const FAIXA_LIMITES = [6, 8, 10, 12, 14, 16, 18, 20, 24];
 
-  // Conta leads por dia da semana × faixa horária
-  const matrix = {}; // key: "dow_faixa" → count
   const recs = flowRecords.filter(r => inPeriod(r.criado_em) && r.criado_em);
 
-  // Como criado_em é só data (sem hora), vamos usar a data e contar por dia da semana
-  // Para hora, precisaríamos do campo com hora — vamos contar só por dia da semana
-  // e mostrar distribuição semanal
-  const dowCount = new Array(7).fill(0);
+  // Verifica se há hora disponível
+  const temHora = recs.some(r => r.criado_hora);
+
+  if (!temHora) {
+    // Fallback: só dia da semana
+    const dowCount = new Array(7).fill(0);
+    recs.forEach(r => {
+      const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
+      dowCount[dow]++;
+    });
+    const maxV = Math.max(...dowCount, 1);
+    chart.setOption({
+      tooltip: { trigger: 'item', formatter: p => `<b>${DIAS[p.data[1]]}</b><br/>Leads: <b>${p.data[2]}</b>`, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
+      visualMap: { min: 0, max: maxV, calculable: false, show: true, orient: 'vertical', right: 8, top: 'center', inRange: { color: ['#f1f5f9','#bfdbfe','#003462'] }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 9, color: '#94a3b8' } },
+      grid: { left: 44, right: 60, top: 10, bottom: 10 },
+      xAxis: { type: 'category', data: ['Volume'], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false } },
+      yAxis: { type: 'category', data: DIAS, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+      series: [{ type: 'heatmap', data: dowCount.map((v,i) => [0, i, v]), label: { show: true, formatter: p => p.data[2] > 0 ? String(p.data[2]) : '', fontFamily: 'JetBrains Mono', fontSize: 12, fontWeight: 700 }, itemStyle: { borderWidth: 2, borderColor: '#fff' } }]
+    }, true);
+    return;
+  }
+
+  // Heatmap real: FAIXA × DIA DA SEMANA
+  // matrix[faixa][dow] = count
+  const matrix = Array.from({ length: FAIXAS.length }, () => new Array(7).fill(0));
+
   recs.forEach(r => {
-    const d = new Date(r.criado_em + 'T12:00:00');
-    const dow = (d.getDay() + 6) % 7; // 0=Seg, ..., 6=Dom
-    dowCount[dow]++;
+    if (!r.criado_hora) return;
+    const dow = (new Date(r.criado_em + 'T12:00:00').getDay() + 6) % 7;
+    const [hStr] = r.criado_hora.split(':');
+    const h = parseInt(hStr, 10);
+    if (isNaN(h)) return;
+    const fi = FAIXA_LIMITES.findIndex(lim => h < lim);
+    if (fi >= 0) matrix[fi][dow]++;
   });
 
-  // Como não temos hora no campo criado_em da planilha atual,
-  // mostrar distribuição por dia da semana como barras horizontais
+  const data = [];
+  let maxVal = 0;
+  for (let fi = 0; fi < FAIXAS.length; fi++) {
+    for (let di = 0; di < 7; di++) {
+      const v = matrix[fi][di];
+      if (v > maxVal) maxVal = v;
+      data.push([di, fi, v]);
+    }
+  }
+
   chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1, formatter: p => `<b>${p[0].axisValue}</b><br/>Leads: <b>${p[0].value}</b>` },
-    grid: { left: 46, right: 20, top: 10, bottom: 10 },
-    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-    yAxis: { type: 'category', data: dias, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
+    tooltip: {
+      position: 'top',
+      textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
+      backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
+      formatter: p => `<b>${DIAS[p.data[0]]} · ${FAIXAS[p.data[1]]}</b><br/>Leads: <b>${p.data[2]}</b>`
+    },
+    visualMap: {
+      min: 0, max: maxVal || 1,
+      calculable: false, show: true,
+      orient: 'vertical', right: 4, top: 'center',
+      inRange: { color: ['#f1f5f9','#93c5fd','#1d4ed8','#003462'] },
+      textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 9, color: '#94a3b8' }
+    },
+    grid: { left: 58, right: 50, top: 10, bottom: 24 },
+    xAxis: {
+      type: 'category', data: DIAS,
+      splitArea: { show: true },
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#4a5468', fontWeight: 600 },
+      axisLine: { show: false }, axisTick: { show: false }
+    },
+    yAxis: {
+      type: 'category', data: FAIXAS,
+      splitArea: { show: true },
+      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#4a5468' },
+      axisLine: { show: false }, axisTick: { show: false }
+    },
     series: [{
-      type: 'bar', barMaxWidth: 20, itemStyle: { borderRadius: [0,3,3,0] },
-      data: dowCount.map((v, i) => ({
-        value: v,
-        itemStyle: { color: v === Math.max(...dowCount) ? '#003462' : `rgba(0,160,163,${0.3 + 0.7 * v / (Math.max(...dowCount) || 1)})` }
-      })),
-      label: { show: true, position: 'right', formatter: p => p.value || '', fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 600 }
+      type: 'heatmap', data,
+      label: {
+        show: true,
+        formatter: p => p.data[2] > 0 ? String(p.data[2]) : '',
+        fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700,
+        color: '#1e293b'
+      },
+      itemStyle: { borderWidth: 2, borderColor: '#fff', borderRadius: 3 },
+      emphasis: { itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' } }
     }]
   }, true);
 }
 
-// ── SEGMENTOS NO PIPELINE ─────────────────────────────────────────
+// ── SEGMENTOS NO PIPELINE — TAXAS DE CONVERSÃO ───────────────────
 function renderSDRSegmentos() {
-  const chart = ec('sdr-ch-segmentos');
-  if (!chart) return;
+  const elChart = document.getElementById('sdr-ch-segmentos');
+  if (!elChart) return;
 
-  // Normaliza segmento (junta dropdown + campo aberto)
+  // Normaliza segmento
   function normSeg(r) {
-    const v = (r.segmento_loja || r.segmento_aberto || '').trim().toLowerCase();
+    const v = (r.segmento_loja || r.segmento_aberto || '').trim();
     if (!v) return 'Não informado';
-    if (/celul|phone|cell|mobi/i.test(v)) return 'Celular';
-    if (/móv|mov|furni/i.test(v)) return 'Móveis';
-    if (/ótic|otic|óculo|oculo|eyew/i.test(v)) return 'Óculos';
-    if (/eletr/i.test(v)) return 'Eletrônicos';
-    if (/eletrodom/i.test(v)) return 'Eletrodomésticos';
-    if (/infor|comput/i.test(v)) return 'Informática';
-    if (/moda|roupa|vestu/i.test(v)) return 'Moda';
-    if (/tim\b|vivo|claro|oi\b|telecom/i.test(v)) return 'Telecom';
+    const l = v.toLowerCase();
+    if (/celul|phone|cell|mobi/i.test(l)) return 'Celular';
+    if (/móv|mov|furni/i.test(l)) return 'Móveis';
+    if (/ótic|otic|óculo|oculo|eyew/i.test(l)) return 'Óculos';
+    if (/eletrodom/i.test(l)) return 'Eletrodomésticos';
+    if (/eletr/i.test(l)) return 'Eletrônicos';
+    if (/infor|comput/i.test(l)) return 'Informática';
+    if (/moda|roupa|vestu/i.test(l)) return 'Moda';
+    if (/tim\b|vivo|claro|oi\b|telecom/i.test(l)) return 'Telecom';
     return 'Outros';
   }
 
-  // Etapas relevantes (agrupadas)
-  const ETAPA_GRUPO = {
-    'Novos Leads': 'Novos Leads',
-    'Msg. Wpp Hunter': 'Contato Ativo',
-    'Reunião Agendada': 'Reunião Agendada',
-    'Show-up': 'Show-up',
-    'Interação': 'Interação',
-    'Nutrição': 'Nutrição',
-    'Negociação Quente': 'Neg. Quente',
-    'Pagamento Recebido': 'Pagamento',
-    'Negócio Perdido': 'Perdido',
-  };
-  const ETAPA_CORES = {
-    'Novos Leads':      '#94a3b8',
-    'Contato Ativo':    '#003462',
-    'Reunião Agendada': '#00a0a3',
-    'Show-up':          '#14c0c4',
-    'Interação':        '#f59e0b',
-    'Nutrição':         '#8b5cf6',
-    'Neg. Quente':      '#f97316',
-    'Pagamento':        '#059669',
-    'Perdido':          '#dc2626',
-  };
-  const ETAPAS_ORDER = Object.values(ETAPA_GRUPO).filter((v,i,a)=>a.indexOf(v)===i);
-
   const recs = flowRecords.filter(r => inPeriod(r.criado_em));
 
-  // Agrupa por segmento → etapa
-  const data = {}; // seg → { etapa: count }
+  // Agrupa por segmento
+  const segData = {};
   recs.forEach(r => {
     const seg = normSeg(r);
-    const etapa = ETAPA_GRUPO[r.etapa] || r.etapa || 'Outros';
-    if (!data[seg]) data[seg] = {};
-    if (!data[seg][etapa]) data[seg][etapa] = 0;
-    data[seg][etapa]++;
+    if (!segData[seg]) segData[seg] = { total: 0, agend: 0, showup: 0, pag: 0 };
+    segData[seg].total++;
+    if (r.dt_reuniao_agendada)  segData[seg].agend++;
+    if (r.dt_apresentacao && nstr(novo(r.id_bitrix), '[Show-up] Data entrada')) segData[seg].showup++;
+    if (r.etapa === 'Pagamento Recebido') segData[seg].pag++;
   });
 
-  const segs = Object.keys(data).sort((a,b) => {
-    const totA = Object.values(data[a]).reduce((s,v)=>s+v,0);
-    const totB = Object.values(data[b]).reduce((s,v)=>s+v,0);
-    return totB - totA;
-  });
+  const segs = Object.keys(segData)
+    .filter(s => segData[s].total >= 2)
+    .sort((a,b) => segData[b].total - segData[a].total);
 
   if (segs.length === 0) {
-    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados de segmento no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
+    const chart = ec('sdr-ch-segmentos');
+    if (chart) chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados de segmento no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
     return;
   }
 
-  const series = ETAPAS_ORDER.map(etapa => ({
-    name: etapa, type: 'bar', stack: 'total',
-    itemStyle: { color: ETAPA_CORES[etapa] || '#94a3b8' },
-    data: segs.map(s => data[s][etapa] || 0),
-    label: { show: false }
-  }));
+  // Renderiza como tabela HTML (mais legível que gráfico para taxas)
+  elChart.style.height = 'auto';
+  const pct = (n, d) => d > 0 ? (n / d * 100).toFixed(1) + '%' : '—';
+  const cor = (v) => {
+    const n = parseFloat(v);
+    if (isNaN(n)) return '#94a3b8';
+    if (n >= 50) return '#059669';
+    if (n >= 30) return '#d97706';
+    return '#dc2626';
+  };
 
-  chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
-    legend: { data: ETAPAS_ORDER, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#4a5468' }, bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 10 },
-    grid: { left: 90, right: 16, top: 12, bottom: 40 },
-    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-    yAxis: { type: 'category', data: segs, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
-    series
-  }, true);
+  elChart.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Segmento</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Total leads</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Agendou</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Taxa agend.</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Show-up</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Show-up %</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Pagamentos</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Conv. global</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${segs.map((s, idx) => {
+          const d = segData[s];
+          const taxaAgend = pct(d.agend, d.total);
+          const taxaShow  = pct(d.showup, d.agend);
+          const taxaConv  = pct(d.pag, d.total);
+          return `
+            <tr style="${idx % 2 === 0 ? '' : 'background:#fafbfc'}">
+              <td style="padding:10px 14px;font-weight:600;color:#1e2432">${s}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.total}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.agend}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaAgend)}">${taxaAgend}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.showup}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaShow)}">${taxaShow}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.pag}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaConv)}">${taxaConv}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
 }
