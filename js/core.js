@@ -175,6 +175,27 @@ function simplifyFonte(f){
   if(/indica/i.test(s))return'Indicação';
   return s.length>22?s.slice(0,20)+'…':s;
 }
+// Versão detalhada: mantém distinção LP x Forms por campanha (gráfico Fonte SDR)
+function simplifyFonteDetalhado(r){
+  const f=r.fonte||'', med=r.utm_medium||'', src=r.utm_source||'';
+  const s=String(f).trim(), combo=s+' '+med+' '+src;
+  const m=s.match(/PB\d{2}/i);
+  if(m){
+    const pb=m[0].toUpperCase();
+    const isLP  = /\blp\b|landing|pagina/i.test(combo);
+    const isForm= /form|lead.gen|leadgen/i.test(combo);
+    if(isLP)  return 'Meta '+pb+' \xb7 LP';
+    if(isForm)return 'Meta '+pb+' \xb7 Forms';
+    return 'Meta '+pb;
+  }
+  if(/meta|facebook|instagram|fb|ig/i.test(s))return'Meta Ads';
+  if(/google|gads/i.test(s))return'Google Ads';
+  if(/organ/i.test(s))return'Org\xe2nico';
+  if(/indica/i.test(s))return'Indica\xe7\xe3o';
+  if(/vivo|chamada/i.test(s))return'Chamada Vivo';
+  if(/formulario|form.*site|site.*form/i.test(s))return'Formul\xe1rio Site';
+  return s.length>25?s.slice(0,23)+'\u2026':s;
+}
 
 // ===== ECHARTS helper (dispose+init) =====
 function ec(id){const e=document.getElementById(id);if(!e)return null;const ex=echarts.getInstanceByDom(e);if(ex)ex.dispose();return echarts.init(e);}
