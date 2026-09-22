@@ -632,23 +632,30 @@ function renderSDRAgendChart() {
 // ── GRÁFICO: FONTE E HUNTER ──────────────────────────────────────
 function renderSDRFonteHunter() {
   const dias7 = sdrUltimos7d();
-  // Label do período para subtítulo nos gráficos
-  const d0 = dias7[dias7.length - 1], d1 = dias7[0];
+  // Label do período global (respeita filtro selecionado)
+  const { start: pStart, end: pEnd } = computeRange();
   const fmtD = s => { const [y,m,d] = s.split('-'); return `${d}/${m}`; };
-  const periodoLabel = `${fmtD(d0)} – ${fmtD(d1)}`;
+  const periodoLabel = `${fmtD(pStart)} – ${fmtD(pEnd)}`;
 
-  const recs7d = flowRecords.filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
+  // Fonte: fixo 7 dias úteis (amostra representativa por fonte)
+  const recs7d  = flowRecords.filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
+  // Hunter: respeita o período global selecionado
+  const recsHunter = flowRecords.filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
 
   const fonteMap = {};
   const hunterMap = {};
 
   recs7d.forEach(r => {
-    const f  = simplifyFonte(r.fonte);
+    const f  = simplifyFonteDetalhado(r);
+    const su = sdrShowup(r);
+    if (!fonteMap[f]) fonteMap[f] = { ag: 0, su: 0 };
+    fonteMap[f].ag++; if (su) fonteMap[f].su++;
+  });
+
+  recsHunter.forEach(r => {
     const h  = r.hunter || 'Sem hunter';
     const su = sdrShowup(r);
-    if (!fonteMap[f])  fonteMap[f]  = { ag: 0, su: 0 };
     if (!hunterMap[h]) hunterMap[h] = { ag: 0, su: 0 };
-    fonteMap[f].ag++;  if (su) fonteMap[f].su++;
     hunterMap[h].ag++; if (su) hunterMap[h].su++;
   });
 
@@ -929,7 +936,7 @@ function renderSDRTempo() {
     })() : 12; // fallback meio-dia
     const criado = new Date(r.criado_em + 'T00:00:00');
     criado.setHours(horaCriacao);
-    const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada]
+    const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada, r.dt_interacao]
       .filter(Boolean)
       .map(d => new Date(d + 'T12:00:00')); // contato sem hora → meio-dia
     if (!datas.length) return null;
