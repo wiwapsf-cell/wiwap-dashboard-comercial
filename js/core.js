@@ -92,6 +92,7 @@ const COL_MAP={
   motivo_wpp_hunter:['Porque você está movendo para Msg. de Wpp Hunter?'],
   utm_source:['UTM Source'], utm_medium:['UTM Medium'], campanha_n8n:['Campanha ativa n8n:'],
   enviou_card:['Enviou o card de geração de valor? (SDR)'],
+  resultado_ligacao_sdr:['Resultado das ligações (SDR):','Resultado das ligações (SDR)'],
   dt_apresentacao:['Data da Apresentação:','Data da Apresentação','Data da Apresentacao:'],
   id_bitrix:['ID Bitrix']
 };
