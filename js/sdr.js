@@ -25,7 +25,7 @@ function sdrShowup(r) {
 
 // Leads criados no período (todos, antes de filtro segmento)
 function sdrLeadsCriados() {
-  return flowRecords.filter(r => inPeriod(r.criado_em));
+  return flowRecords.filter(r => inPeriod(criadoBRT(r)));
 }
 
 // Reuniões criadas no período (dt_reuniao_agendada no período)
@@ -90,7 +90,7 @@ function sdrDiasPeriodo() {
     tmp.setDate(tmp.getDate() + 1);
   }
 
-  if (bizDays <= 14) {
+  if (bizDays <= 45) {
     // dia a dia — exclui fins de semana
     const dias = [];
     let d = new Date(s);
@@ -100,7 +100,7 @@ function sdrDiasPeriodo() {
       d.setDate(d.getDate() + 1);
     }
     return { dias, granular: 'dia' };
-  } else if (bizDays <= 65) {
+  } else if (bizDays <= 130) {
     // semanas: agrupa por semana (segunda)
     const semanas = {};
     let d = new Date(s);
@@ -147,7 +147,7 @@ function sdrMetricasPorDia(dias) {
     const marcadas = flowRecords.filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(iso));
     const presentes = marcadas.filter(r => sdrShowup(r));
     const agendGer  = flowRecords.filter(r => r.dt_reuniao_agendada && r.dt_reuniao_agendada.startsWith(iso));
-    const leads     = flowRecords.filter(r => r.criado_em && r.criado_em.startsWith(iso));
+    const leads     = flowRecords.filter(r => criadoBRT(r) === iso);
     return {
       iso,
       marcadas: marcadas.length,
@@ -166,7 +166,7 @@ function sdrMetricasAgrupadas(grupos, chaves) {
     const marcadas = flowRecords.filter(r => r.dt_apresentacao && isos.includes(r.dt_apresentacao));
     const presentes = marcadas.filter(r => sdrShowup(r));
     const agendGer  = flowRecords.filter(r => r.dt_reuniao_agendada && isos.includes(r.dt_reuniao_agendada));
-    const leads     = flowRecords.filter(r => r.criado_em && isos.includes(r.criado_em));
+    const leads     = flowRecords.filter(r => isos.includes(criadoBRT(r)));
     return {
       iso: key,
       marcadas: marcadas.length,
@@ -236,7 +236,7 @@ function renderSDRKpis() {
   // Leads criados nos últimos 7 dias úteis → quantos viraram agendamento
   const dias7c = sdrUltimos7d();
   const { start: startC } = { start: dias7c[0], end: dias7c[dias7c.length-1] };
-  const leadsCoorte  = flowRecords.filter(r => r.criado_em && r.criado_em >= startC);
+  const leadsCoorte  = flowRecords.filter(r => { const c = criadoBRT(r); return c && c >= startC; });
   const agendCoorte  = leadsCoorte.filter(r => r.dt_reuniao_agendada);
   const taxaAg = leadsCoorte.length > 0 ? (agendCoorte.length / leadsCoorte.length * 100).toFixed(1) : '—';
   const taxaAgColor = taxaAg === '—' ? '' : (+taxaAg >= 50 ? 'gr' : +taxaAg >= 40 ? 'or' : 'rd');
@@ -742,8 +742,9 @@ function renderSDRBacklog() {
   // 1. Leads sem primeiro contato — criados nos últimos 30 dias, antes de hoje,
   //    sem agendamento e sem msg wpp hunter
   const semContato = flowRecords.filter(r => {
-    if (!r.criado_em || r.criado_em >= hoje) return false;
-    if (r.criado_em < limite30) return false;
+    const c = criadoBRT(r);
+    if (!c || c >= hoje) return false;
+    if (c < limite30) return false;
     return !r.dt_reuniao_agendada && !r.dt_msg_wpp_hunter;
   });
 
@@ -853,7 +854,7 @@ function renderSDRLigacoes() {
   const chart  = ec('sdr-ch-ligacoes');
   if (!kpisEl || !chart) return;
 
-  const recs = flowRecords.filter(r => inPeriod(r.criado_em) && r.resultado_ligacao_sdr);
+  const recs = flowRecords.filter(r => inPeriod(criadoBRT(r)) && r.resultado_ligacao_sdr);
   const total = recs.length;
 
   const counts = {};
@@ -1155,7 +1156,7 @@ function renderSDRSegmentos() {
     return 'Outros';
   }
 
-  const recs = flowRecords.filter(r => inPeriod(r.criado_em));
+  const recs = flowRecords.filter(r => inPeriod(criadoBRT(r)));
 
   // Agrupa por segmento
   const segData = {};
