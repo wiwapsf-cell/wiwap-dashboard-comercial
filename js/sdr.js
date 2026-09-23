@@ -1237,8 +1237,11 @@ function sdrSankeyEstagio(r) {
   if (nstr(n, '[NG] Data entrada')) return 'Negociação Quente';
   if (nstr(n, '[Interação] Data entrada')) return 'Interação';
   if (nstr(n, '[Show-up] Data entrada')) return 'Show-up';
+  // Contato Ativo Hunter tem precedência sobre Reunião Agendada: o campo motivo_wpp_hunter
+  // só é preenchido quando o lead É MOVIDO para cá — inclusive leads que já tinham
+  // dt_apresentacao preenchido (caso de no-show, devolvidos para nova tentativa do hunter).
+  if ((r.motivo_wpp_hunter || '').trim() || nstr(n, '[CA-S3] Disparo Imediato') || nstr(n, '[CA-S2] Disparo Imediato') || nstr(n, '[CA-S1] Disparo Imediato')) return 'Contato Ativo Hunter';
   if (r.dt_apresentacao) return 'Reunião Agendada';
-  if (nstr(n, '[CA-S3] Disparo Imediato') || nstr(n, '[CA-S2] Disparo Imediato') || nstr(n, '[CA-S1] Disparo Imediato')) return 'Contato Ativo Hunter';
   if (nstr(n, '[Abandono] Data entrada')) return 'Abandono Pós Cadastro';
   return 'Novos Leads';
 }
@@ -1254,6 +1257,10 @@ const SDR_SANKEY_COLORS = {
   'Interação': PU, 'Negociação Quente': '#c026d3', 'Pagamento Recebido': GR,
   'Em andamento': '#64748b', 'Nutrição': SK, 'Descartado': RD
 };
+// Paleta cíclica para os nós de "motivo" (3ª camada, só sob Contato Ativo Hunter) —
+// os textos vêm direto do campo motivo_wpp_hunter, sem valores fixos no código.
+const SDR_MOTIVO_PALETTE = ['#f59e0b', '#0ea5e9', '#ec4899', '#84cc16', '#8b5cf6', '#f97316'];
+
 function renderSDRSankey() {
   const chart = ec('sdr-ch-sankey');
   if (!chart) return;
@@ -1266,26 +1273,54 @@ function renderSDRSankey() {
   }
 
   const l1count = {};
-  const l2links = {};
+  const l2links = {};   // estágio -> (motivo, se CA) ou situação diretamente
+  const l3links = {};   // motivo -> situação (só para o ramo Contato Ativo Hunter)
+  const motivoCount = {};
+
   for (const r of base) {
     const e1 = sdrSankeyEstagio(r);
     l1count[e1] = (l1count[e1] || 0) + 1;
-    if (e1 !== 'Pagamento Recebido') {
-      const e2 = sdrSankeySituacao(r);
+    if (e1 === 'Pagamento Recebido') continue;
+
+    const e2 = sdrSankeySituacao(r);
+
+    if (e1 === 'Contato Ativo Hunter') {
+      // Motivo real do campo — sem valores hardcoded, reflete exatamente o que está no Bitrix
+      const motivoRaw = (r.motivo_wpp_hunter || '').trim();
+      const motivo = motivoRaw || 'Motivo não registrado';
+      motivoCount[motivo] = (motivoCount[motivo] || 0) + 1;
+      const k1 = e1 + '||' + motivo;
+      l2links[k1] = (l2links[k1] || 0) + 1;
+      const k2 = motivo + '||' + e2;
+      l3links[k2] = (l3links[k2] || 0) + 1;
+    } else {
       const key = e1 + '||' + e2;
       l2links[key] = (l2links[key] || 0) + 1;
     }
   }
 
+  // Cores para os nós de motivo, na ordem de volume (maior primeiro)
+  const motivoOrdenado = Object.keys(motivoCount).sort((a, b) => motivoCount[b] - motivoCount[a]);
+  const motivoColors = {};
+  motivoOrdenado.forEach((m, i) => { motivoColors[m] = SDR_MOTIVO_PALETTE[i % SDR_MOTIVO_PALETTE.length]; });
+
   const nodeNames = new Set(['Leads Recebidos']);
   SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) nodeNames.add(n); });
-  Object.keys(l2links).forEach(k => { const e2 = k.split('||')[1]; nodeNames.add(e2); });
+  Object.keys(l2links).forEach(k => { const parts = k.split('||'); nodeNames.add(parts[1]); });
+  Object.keys(l3links).forEach(k => { const parts = k.split('||'); nodeNames.add(parts[1]); });
 
-  const nodes = [...nodeNames].map(name => ({ name, itemStyle: { color: SDR_SANKEY_COLORS[name] || GY } }));
+  const nodes = [...nodeNames].map(name => ({
+    name,
+    itemStyle: { color: SDR_SANKEY_COLORS[name] || motivoColors[name] || GY }
+  }));
 
   const links = [];
   SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) links.push({ source: 'Leads Recebidos', target: n, value: l1count[n] }); });
   Object.entries(l2links).forEach(([k, v]) => {
+    const [e1, e2] = k.split('||');
+    links.push({ source: e1, target: e2, value: v });
+  });
+  Object.entries(l3links).forEach(([k, v]) => {
     const [e1, e2] = k.split('||');
     links.push({ source: e1, target: e2, value: v });
   });
@@ -1302,16 +1337,16 @@ function renderSDRSankey() {
       backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1
     },
     series: [{
-      type: 'sankey', left: 8, right: 170, top: 14, bottom: 14,
-      nodeGap: 16, nodeWidth: 16,
+      type: 'sankey', left: 8, right: 190, top: 14, bottom: 14,
+      nodeGap: 14, nodeWidth: 14,
       layoutIterations: 64,
       emphasis: { focus: 'adjacency' },
       data: nodes,
       links,
       label: {
-        fontFamily: 'Plus Jakarta Sans', fontSize: 11.5, fontWeight: 600, color: '#1e293b',
+        fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: '#1e293b',
         formatter: p => {
-          const v = l1count[p.name] !== undefined ? l1count[p.name] : null;
+          const v = l1count[p.name] !== undefined ? l1count[p.name] : (motivoCount[p.name] !== undefined ? motivoCount[p.name] : null);
           return v !== null ? `${p.name}  ${v}` : p.name;
         }
       },
