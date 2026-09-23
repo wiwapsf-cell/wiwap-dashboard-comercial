@@ -1272,14 +1272,26 @@ function renderSDRSankey() {
     return;
   }
 
-  const l1count = {};
-  const l2links = {};   // estágio -> (motivo, se CA) ou situação diretamente
-  const l3links = {};   // motivo -> situação (só para o ramo Contato Ativo Hunter)
+  // Estágios que só podem ser alcançados progredindo pelos anteriores (confirmado pela
+  // própria lógica do dashboard: renderStage5 define "avançou" = Show-up + campo Interação
+  // preenchido; Negociação Quente e Pagamento seguem a mesma cadeia natural do pipeline).
+  // Esses formam uma "espinha" contínua — cada nó só existe se o lead passou pelo anterior.
+  const CHAIN = ['Reunião Agendada', 'Show-up', 'Interação', 'Negociação Quente', 'Pagamento Recebido'];
+  // Estágios de entrada "soltos" — podem ser alcançados por caminhos diferentes
+  // (ex: SDR agenda direto sem passar por Abandono/CA), então ficam ligados direto
+  // em Leads Recebidos, sem forçar uma sequência que o dado não comprova.
+  const FLAT = ['Novos Leads', 'Abandono Pós Cadastro', 'Contato Ativo Hunter'];
+
+  const l1count = {};      // contagem por "estágio mais avançado" (mutuamente exclusivo)
+  const l2links = {};      // links estágio -> (motivo, se CA) ou situação
+  const l3links = {};      // motivo -> situação (só ramo Contato Ativo Hunter)
   const motivoCount = {};
 
   for (const r of base) {
     const e1 = sdrSankeyEstagio(r);
     l1count[e1] = (l1count[e1] || 0) + 1;
+
+    if (CHAIN.includes(e1)) continue; // tratados abaixo, na cadeia cumulativa
     if (e1 === 'Pagamento Recebido') continue;
 
     const e2 = sdrSankeySituacao(r);
@@ -1299,15 +1311,43 @@ function renderSDRSankey() {
     }
   }
 
+  // ── Cadeia cumulativa: Reunião Agendada → Show-up → Interação → Negociação Quente → Pagamento
+  // cumCount[i] = leads cujo estágio mais avançado é CHAIN[i] ou qualquer posterior na cadeia
+  const cumCount = CHAIN.map((_, i) => CHAIN.slice(i).reduce((s, st) => s + (l1count[st] || 0), 0));
+  const chainLinksDedup = [];
+
+  // Entrada na cadeia: todo lead que chegou em Reunião Agendada ou além
+  if (cumCount[0] > 0) chainLinksDedup.push({ source: 'Leads Recebidos', target: CHAIN[0], value: cumCount[0] });
+
+  for (let i = 0; i < CHAIN.length; i++) {
+    const atual = CHAIN[i];
+    const parou = l1count[atual] || 0;
+
+    // Quem avançou → próximo elo da cadeia
+    if (i < CHAIN.length - 1 && cumCount[i + 1] > 0) {
+      chainLinksDedup.push({ source: atual, target: CHAIN[i + 1], value: cumCount[i + 1] });
+    }
+
+    // Quem ficou parado exatamente aqui → situação (Pagamento Recebido não se divide, já é terminal)
+    if (parou > 0 && atual !== 'Pagamento Recebido') {
+      const recsAtual = base.filter(r => sdrSankeyEstagio(r) === atual);
+      const sitCount = {};
+      recsAtual.forEach(r => { const s = sdrSankeySituacao(r); sitCount[s] = (sitCount[s] || 0) + 1; });
+      Object.entries(sitCount).forEach(([s, v]) => chainLinksDedup.push({ source: atual, target: s, value: v }));
+    }
+  }
+
   // Cores para os nós de motivo, na ordem de volume (maior primeiro)
   const motivoOrdenado = Object.keys(motivoCount).sort((a, b) => motivoCount[b] - motivoCount[a]);
   const motivoColors = {};
   motivoOrdenado.forEach((m, i) => { motivoColors[m] = SDR_MOTIVO_PALETTE[i % SDR_MOTIVO_PALETTE.length]; });
 
   const nodeNames = new Set(['Leads Recebidos']);
-  SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) nodeNames.add(n); });
+  FLAT.forEach(n => { if (l1count[n]) nodeNames.add(n); });
+  CHAIN.forEach(n => { if (cumCount[CHAIN.indexOf(n)] > 0) nodeNames.add(n); });
   Object.keys(l2links).forEach(k => { const parts = k.split('||'); nodeNames.add(parts[1]); });
   Object.keys(l3links).forEach(k => { const parts = k.split('||'); nodeNames.add(parts[1]); });
+  chainLinksDedup.forEach(l => { nodeNames.add(l.source); nodeNames.add(l.target); });
 
   const nodes = [...nodeNames].map(name => ({
     name,
@@ -1315,7 +1355,7 @@ function renderSDRSankey() {
   }));
 
   const links = [];
-  SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) links.push({ source: 'Leads Recebidos', target: n, value: l1count[n] }); });
+  FLAT.forEach(n => { if (l1count[n]) links.push({ source: 'Leads Recebidos', target: n, value: l1count[n] }); });
   Object.entries(l2links).forEach(([k, v]) => {
     const [e1, e2] = k.split('||');
     links.push({ source: e1, target: e2, value: v });
@@ -1324,6 +1364,12 @@ function renderSDRSankey() {
     const [e1, e2] = k.split('||');
     links.push({ source: e1, target: e2, value: v });
   });
+  links.push(...chainLinksDedup);
+
+  // Label do nó mostra a contagem correta: soma cumulativa para nós da cadeia,
+  // contagem exata (mutuamente exclusiva) para os demais
+  const nodeLabelCount = { ...l1count };
+  CHAIN.forEach((n, i) => { if (cumCount[i] > 0) nodeLabelCount[n] = cumCount[i]; });
 
   const total = base.length;
   chart.setOption({
@@ -1346,7 +1392,7 @@ function renderSDRSankey() {
       label: {
         fontFamily: 'Plus Jakarta Sans', fontSize: 11, fontWeight: 600, color: '#1e293b',
         formatter: p => {
-          const v = l1count[p.name] !== undefined ? l1count[p.name] : (motivoCount[p.name] !== undefined ? motivoCount[p.name] : null);
+          const v = nodeLabelCount[p.name] !== undefined ? nodeLabelCount[p.name] : (motivoCount[p.name] !== undefined ? motivoCount[p.name] : null);
           return v !== null ? `${p.name}  ${v}` : p.name;
         }
       },
