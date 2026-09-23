@@ -220,6 +220,7 @@ function renderSDR() {
   renderSDRTempo();
   renderSDRHeatmap();
   renderSDRSegmentos();
+  renderSDRSankey();
   setTimeout(resizeVisible, 80);
 }
 
@@ -918,8 +919,8 @@ function renderSDRTempo() {
   // Primeiro contato real = MIN(dt_msg_wpp_hunter, dt_reuniao_agendada)
   // Como os campos são só data (sem hora), medimos em DIAS corridos
   const recs = flowRecords.filter(r =>
-    inPeriod(r.criado_em) && r.criado_em &&
-    (r.dt_msg_wpp_hunter || r.dt_reuniao_agendada)
+    inPeriod(criadoBRT(r)) &&
+    (r.dt_msg_wpp_hunter || r.dt_reuniao_agendada || r.dt_interacao)
   );
 
   if (recs.length === 0) {
@@ -1220,4 +1221,101 @@ function renderSDRSegmentos() {
       </tbody>
     </table>
   `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SANKEY — JORNADA DO LEAD (entrada → estágio mais avançado → situação atual)
+// ══════════════════════════════════════════════════════════════
+// Cada lead é classificado em UM único "estágio mais avançado" (mutuamente exclusivo,
+// soma = total de leads no período), seguindo a ordem real do pipeline Bitrix (mesmos
+// campos usados nas seções "Por etapa do funil" da aba Comercial). Para estágios que
+// não chegaram a Pagamento, um segundo nível mostra a situação atual: Nutrição,
+// Descartado ou Em andamento. Usa criadoBRT() para consistência de fuso com o resto da aba SDR.
+function sdrSankeyEstagio(r) {
+  const n = novo(r.id_bitrix);
+  if (r.etapa === 'Pagamento Recebido') return 'Pagamento Recebido';
+  if (nstr(n, '[NG] Data entrada')) return 'Negociação Quente';
+  if (nstr(n, '[Interação] Data entrada')) return 'Interação';
+  if (nstr(n, '[Show-up] Data entrada')) return 'Show-up';
+  if (r.dt_apresentacao) return 'Reunião Agendada';
+  if (nstr(n, '[CA-S3] Disparo Imediato') || nstr(n, '[CA-S2] Disparo Imediato') || nstr(n, '[CA-S1] Disparo Imediato')) return 'Contato Ativo Hunter';
+  if (nstr(n, '[Abandono] Data entrada')) return 'Abandono Pós Cadastro';
+  return 'Novos Leads';
+}
+function sdrSankeySituacao(r) {
+  if (r.etapa === 'Nutrição') return 'Nutrição';
+  if ((r.motivo_descarte || '').trim()) return 'Descartado';
+  return 'Em andamento';
+}
+const SDR_SANKEY_ORDER = ['Novos Leads', 'Abandono Pós Cadastro', 'Contato Ativo Hunter', 'Reunião Agendada', 'Show-up', 'Interação', 'Negociação Quente', 'Pagamento Recebido'];
+const SDR_SANKEY_COLORS = {
+  'Leads Recebidos': TL, 'Novos Leads': GY, 'Abandono Pós Cadastro': OR,
+  'Contato Ativo Hunter': AM, 'Reunião Agendada': '#008f92', 'Show-up': NV,
+  'Interação': PU, 'Negociação Quente': '#c026d3', 'Pagamento Recebido': GR,
+  'Em andamento': '#64748b', 'Nutrição': SK, 'Descartado': RD
+};
+function renderSDRSankey() {
+  const chart = ec('sdr-ch-sankey');
+  if (!chart) return;
+
+  const base = flowRecords.filter(r => inPeriod(criadoBRT(r)));
+
+  if (base.length === 0) {
+    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem leads no período', fill: GY, fontSize: 12, fontFamily: F } }] }, true);
+    return;
+  }
+
+  const l1count = {};
+  const l2links = {};
+  for (const r of base) {
+    const e1 = sdrSankeyEstagio(r);
+    l1count[e1] = (l1count[e1] || 0) + 1;
+    if (e1 !== 'Pagamento Recebido') {
+      const e2 = sdrSankeySituacao(r);
+      const key = e1 + '||' + e2;
+      l2links[key] = (l2links[key] || 0) + 1;
+    }
+  }
+
+  const nodeNames = new Set(['Leads Recebidos']);
+  SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) nodeNames.add(n); });
+  Object.keys(l2links).forEach(k => { const e2 = k.split('||')[1]; nodeNames.add(e2); });
+
+  const nodes = [...nodeNames].map(name => ({ name, itemStyle: { color: SDR_SANKEY_COLORS[name] || GY } }));
+
+  const links = [];
+  SDR_SANKEY_ORDER.forEach(n => { if (l1count[n]) links.push({ source: 'Leads Recebidos', target: n, value: l1count[n] }); });
+  Object.entries(l2links).forEach(([k, v]) => {
+    const [e1, e2] = k.split('||');
+    links.push({ source: e1, target: e2, value: v });
+  });
+
+  const total = base.length;
+  chart.setOption({
+    tooltip: {
+      trigger: 'item',
+      formatter: p => {
+        if (p.dataType === 'edge') return `${p.data.source} → ${p.data.target}<br/><b>${p.data.value}</b> leads (${(p.data.value / total * 100).toFixed(1)}%)`;
+        return `<b>${p.name}</b>`;
+      },
+      textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
+      backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1
+    },
+    series: [{
+      type: 'sankey', left: 8, right: 170, top: 14, bottom: 14,
+      nodeGap: 16, nodeWidth: 16,
+      layoutIterations: 64,
+      emphasis: { focus: 'adjacency' },
+      data: nodes,
+      links,
+      label: {
+        fontFamily: 'Plus Jakarta Sans', fontSize: 11.5, fontWeight: 600, color: '#1e293b',
+        formatter: p => {
+          const v = l1count[p.name] !== undefined ? l1count[p.name] : null;
+          return v !== null ? `${p.name}  ${v}` : p.name;
+        }
+      },
+      lineStyle: { color: 'gradient', opacity: 0.25, curveness: 0.5 }
+    }]
+  }, true);
 }
