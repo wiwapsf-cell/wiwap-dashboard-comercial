@@ -345,10 +345,12 @@
   <div id="ch-mkt-leads" style="height:200px"></div>
 </div>
 
-<div class="panel" style="margin-bottom:11px">
-  <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Volume por fonte / campanha + taxa de conversão</div>
-  <div class="ps">Meta Ads: campo fonte (código campanha extraído) · Outros: utm_source + utm_medium · Barras = volume · Linha = taxa conversão (pagamentos/leads)</div>
-  <div id="ch-mkt-fonte" style="height:260px"></div>
+<div class="panel" style="margin-bottom:11px;padding:0;overflow:hidden">
+  <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
+    <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Fontes de lead · funil completo + investimento e retorno</div>
+    <div class="ps">Cada fonte é o texto exato do campo "Fonte de Lead" no Bitrix · leads do coorte (criados no período), acompanhados até hoje · Gasto casado pelo código [PB##] entre a fonte do lead e o nome da campanha na planilha de tráfego · Receita = conversões × ticket médio real do período (mesma metodologia já usada no card "Impacto API oficial")</div>
+  </div>
+  <div id="mk-tbl-fontes" style="overflow-x:auto"></div>
 </div>
 
 <!-- GASTO VS RECEITA -->
