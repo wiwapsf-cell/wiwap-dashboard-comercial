@@ -34,6 +34,23 @@ function extractPB(s){
   if(!m)return null;
   return m[2]?m[1]+'-'+m[2].toUpperCase():m[1];
 }
+// DE/PARA manual para campanhas que NÃO usam código [PB##] — usam nome de público livre,
+// e às vezes esse nome vem escrito diferente na planilha de tráfego e na fonte do Bitrix
+// (ex: "Retageing Site 180 dias" na campanha vs "Pixel Site 180 Dias" no Bitrix, mesmo
+// público, grafias diferentes). Cada linha aqui é UM regex que casa as duas variações —
+// adicione novas linhas conforme aparecerem outros casos assim.
+const CAMPANHA_ALIAS=[
+  {re:/retageing\s*site\s*180\s*dias|retargeting\s*site\s*180\s*dias|pixel\s*site\s*180\s*dias/i,key:'RETARGETING-SITE-180D'},
+];
+// Chave de casamento: tenta código PB## primeiro; se não achar, tenta os apelidos manuais
+// acima; se nenhum dos dois bater, retorna null (sem gasto atribuído pra essa fonte)
+function extractMatchKey(s){
+  const pb=extractPB(s);
+  if(pb)return'PB'+pb;
+  const t=String(s||'');
+  for(const a of CAMPANHA_ALIAS){ if(a.re.test(t))return a.key; }
+  return null;
+}
 // Classifica o SUBTIPO de campanha (Formulário / LP Geral / LP de Agendamento) — usado
 // para não misturar o gasto de campanhas diferentes que compartilham o mesmo código PB##.
 // Funciona tanto no nome da campanha (planilha de tráfego) quanto na fonte do lead (Bitrix),
@@ -86,15 +103,16 @@ function renderMktFonteTable(){
   let rows=fontes.map(f=>{
     const d=fonteMap[f];
     const pb=extractPB(f);
-    const tipo=pb?classifyTipoCampanha(f):null;
-    // Casa por PB + subtipo (Formulário/LP Geral/LP Agendamento) quando dá pra identificar
-    // o subtipo dos dois lados; se a fonte não permitir identificar o subtipo, cai no
-    // casamento só por código PB (comportamento antigo, evita zerar gasto por excesso de rigor)
+    const matchKey=extractMatchKey(f);
+    const tipo=matchKey?classifyTipoCampanha(f):null;
+    // Casa por chave (PB## ou apelido) + subtipo (Formulário/LP Geral/LP Agendamento) quando
+    // dá pra identificar o subtipo dos dois lados; se não der, cai no casamento só pela chave
+    // (evita zerar gasto por excesso de rigor)
     let gastoRecs;
-    if(pb&&tipo){
-      gastoRecs=metaPeriodo.filter(r=>extractPB(r.campanha)===pb&&classifyTipoCampanha(r.campanha)===tipo);
-    }else if(pb){
-      gastoRecs=metaPeriodo.filter(r=>extractPB(r.campanha)===pb);
+    if(matchKey&&tipo){
+      gastoRecs=metaPeriodo.filter(r=>extractMatchKey(r.campanha)===matchKey&&classifyTipoCampanha(r.campanha)===tipo);
+    }else if(matchKey){
+      gastoRecs=metaPeriodo.filter(r=>extractMatchKey(r.campanha)===matchKey);
     }else{
       gastoRecs=[];
     }
@@ -104,7 +122,7 @@ function renderMktFonteTable(){
     const taxaAgend=d.total>0?+(d.agend/d.total*100).toFixed(1):0;
     const taxaShow=d.agend>0?+(d.presenca/d.agend*100).toFixed(1):0;
     const taxaConv=d.total>0?+(d.conv/d.total*100).toFixed(1):0;
-    return {fonte:f,pb,tipo,...d,taxaAgend,taxaShow,taxaConv,gasto,receita,roas};
+    return {fonte:f,pb,matchKey,tipo,...d,taxaAgend,taxaShow,taxaConv,gasto,receita,roas};
   });
 
   // Ordenação
@@ -149,7 +167,7 @@ function renderMktFonteTable(){
         ${rows.map((d,idx)=>{
           return `
             <tr style="${idx%2===0?'':'background:#fafbfc'}">
-              <td style="padding:10px 14px;font-weight:600;color:#1e2432;max-width:280px">${d.fonte}${d.pb?` <span style="font-weight:400;color:#94a3b8;font-size:10px">[PB${d.pb}${d.tipo?' · '+d.tipo:''}]</span>`:''}</td>
+              <td style="padding:10px 14px;font-weight:600;color:#1e2432;max-width:280px">${d.fonte}${d.matchKey?` <span style="font-weight:400;color:#94a3b8;font-size:10px">[${d.pb?'PB'+d.pb:'público identificado'}${d.tipo?' · '+d.tipo:''}]</span>`:''}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.total}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.agend}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(d.taxaAgend)}">${pctFmt(d.taxaAgend)}</td>
