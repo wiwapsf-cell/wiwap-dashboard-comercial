@@ -53,22 +53,30 @@ let mktFonteSort={key:'total',dir:'desc'};
 function renderMktFonteTable(){
   const el=document.getElementById('mk-tbl-fontes');
   if(!el)return;
-  const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+  const byH=flowRecords.filter(byHunter);
+  // Cada coluna olha pro SEU PRÓPRIO campo de data — são 4 fatias independentes,
+  // não uma coorte única. Um lead pode entrar em "Presença" hoje mesmo tendo sido
+  // criado e agendado em dias diferentes.
+  const baseLeads  = byH.filter(r=>inPeriod(r.criado_em));                                          // Criado no
+  const baseAgend  = byH.filter(r=>inPeriod(r.dt_apresentacao));                                     // Data da Apresentação
+  const basePres   = byH.filter(r=>inPeriod(parseDateBR(nstr(novo(r.id_bitrix),'[Show-up] Data entrada')))); // [Show-up] Data entrada
+  const basePagos  = byH.filter(r=>r.etapa==='Pagamento Recebido'&&inPeriod(r.dt_pagamento));        // Data de pagamento
 
-  if(base.length===0){
+  if(!baseLeads.length&&!baseAgend.length&&!basePres.length&&!basePagos.length){
     el.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-family:\'Plus Jakarta Sans\',sans-serif;font-size:12px">Sem leads no período</div>';
     return;
   }
 
   const fonteMap={};
-  for(const r of base){
+  const bump=(r,field)=>{
     const f=(r.fonte||'Sem fonte').trim()||'Sem fonte';
     if(!fonteMap[f])fonteMap[f]={total:0,agend:0,presenca:0,conv:0};
-    fonteMap[f].total++;
-    if(r.dt_apresentacao)fonteMap[f].agend++;
-    if(r.dt_apresentacao&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))fonteMap[f].presenca++;
-    if(r.etapa==='Pagamento Recebido')fonteMap[f].conv++;
-  }
+    fonteMap[f][field]++;
+  };
+  baseLeads.forEach(r=>bump(r,'total'));
+  baseAgend.forEach(r=>bump(r,'agend'));
+  basePres.forEach(r=>bump(r,'presenca'));
+  basePagos.forEach(r=>bump(r,'conv'));
 
   const ticket=getTicketMedioReal();
   const metaPeriodo=metaRecords.filter(r=>inPeriod(r.dt_inicio));
