@@ -25,11 +25,28 @@ function renderMkt(){
 }
 
 // Extrai o código de público [PB##] de qualquer string (fonte do lead OU nome da campanha
-// na planilha de tráfego) — aceita "PB05", "PB-02", "PB07-B" etc, sempre pegando os 2 dígitos
+// na planilha de tráfego) — aceita "PB05", "PB-02", "PB07-B" etc, sempre pegando os 2 dígitos.
+// OBS: a variação "-B" (ex: PB07-B, geralmente um teste de criativo) é tratada como o MESMO
+// código PB07 aqui, porque não temos confirmação se o Bitrix chega a diferenciar isso na fonte
+// do lead. Se o Bitrix também diferenciar, me avise que eu separo o gasto certinho.
 function extractPB(s){
   const m=String(s||'').match(/PB-?(\d{2})/i);
   return m?m[1]:null;
 }
+// Classifica o SUBTIPO de campanha (Formulário / LP Geral / LP de Agendamento) — usado
+// para não misturar o gasto de campanhas diferentes que compartilham o mesmo código PB##.
+// Funciona tanto no nome da campanha (planilha de tráfego) quanto na fonte do lead (Bitrix),
+// porque reconhece as duas convenções de nomenclatura.
+function classifyTipoCampanha(s){
+  const t=String(s||'');
+  if(/LP\s*de\s*Agendamento/i.test(t))return'LP de Agendamento';
+  if(/FORMS?-?INST/i.test(t)||/Formul[aá]rio/i.test(t))return'Formulário';
+  if(/LP\s*Geral/i.test(t))return'LP Geral';
+  if(/\[LP\]/i.test(t))return'LP Geral';
+  return null;
+}
+
+let mktFonteSort={key:'total',dir:'desc'};
 
 function renderMktFonteTable(){
   const el=document.getElementById('mk-tbl-fontes');
@@ -54,53 +71,82 @@ function renderMktFonteTable(){
   const ticket=getTicketMedioReal();
   const metaPeriodo=metaRecords.filter(r=>inPeriod(r.dt_inicio));
 
-  const fontes=Object.keys(fonteMap).sort((a,b)=>fonteMap[b].total-fonteMap[a].total);
+  const fontes=Object.keys(fonteMap);
 
-  const rows=fontes.map(f=>{
+  let rows=fontes.map(f=>{
     const d=fonteMap[f];
     const pb=extractPB(f);
-    const gasto=pb?metaPeriodo.filter(r=>extractPB(r.campanha)===pb).reduce((s,r)=>s+r.valor,0):0;
+    const tipo=pb?classifyTipoCampanha(f):null;
+    // Casa por PB + subtipo (Formulário/LP Geral/LP Agendamento) quando dá pra identificar
+    // o subtipo dos dois lados; se a fonte não permitir identificar o subtipo, cai no
+    // casamento só por código PB (comportamento antigo, evita zerar gasto por excesso de rigor)
+    let gastoRecs;
+    if(pb&&tipo){
+      gastoRecs=metaPeriodo.filter(r=>extractPB(r.campanha)===pb&&classifyTipoCampanha(r.campanha)===tipo);
+    }else if(pb){
+      gastoRecs=metaPeriodo.filter(r=>extractPB(r.campanha)===pb);
+    }else{
+      gastoRecs=[];
+    }
+    const gasto=gastoRecs.reduce((s,r)=>s+r.valor,0);
     const receita=d.conv*ticket;
     const roas=gasto>0?receita/gasto:null;
-    return {fonte:f,pb,...d,gasto,receita,roas};
+    const taxaAgend=d.total>0?+(d.agend/d.total*100).toFixed(1):0;
+    const taxaShow=d.agend>0?+(d.presenca/d.agend*100).toFixed(1):0;
+    const taxaConv=d.total>0?+(d.conv/d.total*100).toFixed(1):0;
+    return {fonte:f,pb,tipo,...d,taxaAgend,taxaShow,taxaConv,gasto,receita,roas};
   });
 
-  const pct=(n,d)=>d>0?(n/d*100).toFixed(1)+'%':'—';
-  const cor=(v)=>{const n=parseFloat(v);if(isNaN(n))return'#94a3b8';if(n>=50)return'#059669';if(n>=25)return'#d97706';return'#dc2626';};
+  // Ordenação
+  const {key,dir}=mktFonteSort;
+  rows.sort((a,b)=>{
+    let va=a[key], vb=b[key];
+    if(va===null)va=-1; if(vb===null)vb=-1;
+    if(typeof va==='string')return dir==='asc'?va.localeCompare(vb):vb.localeCompare(va);
+    return dir==='asc'?va-vb:vb-va;
+  });
+
+  const pctFmt=(n)=>n>0||n===0?n.toFixed(1)+'%':'—';
+  const cor=(n)=>{if(isNaN(n))return'#94a3b8';if(n>=50)return'#059669';if(n>=25)return'#d97706';return'#dc2626';};
   const corRoas=(r)=>{if(r===null)return'#94a3b8';if(r>=3)return'#059669';if(r>=1)return'#d97706';return'#dc2626';};
+
+  const cols=[
+    {key:'fonte',label:'Fonte / campanha',align:'left',sortable:false},
+    {key:'total',label:'Leads',align:'right',sortable:true},
+    {key:'agend',label:'Agend.',align:'right',sortable:true},
+    {key:'taxaAgend',label:'Taxa agend.',align:'right',sortable:true},
+    {key:'presenca',label:'Presença',align:'right',sortable:true},
+    {key:'taxaShow',label:'Show-up %',align:'right',sortable:true},
+    {key:'conv',label:'Conversões',align:'right',sortable:true},
+    {key:'taxaConv',label:'Taxa conv.',align:'right',sortable:true},
+    {key:'gasto',label:'Gasto tráfego',align:'right',sortable:true},
+    {key:'receita',label:'Receita (est.)',align:'right',sortable:true},
+    {key:'roas',label:'ROAS',align:'right',sortable:true},
+  ];
+
+  const thHtml=cols.map(c=>{
+    const arrow=mktFonteSort.key===c.key?(mktFonteSort.dir==='asc'?' ▲':' ▼'):'';
+    const cursor=c.sortable?'cursor:pointer;user-select:none':'';
+    return `<th data-key="${c.key}" data-sortable="${c.sortable}" style="padding:10px 14px;text-align:${c.align};font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px;${cursor}">${c.label}${arrow}</th>`;
+  }).join('');
 
   el.innerHTML=`
     <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif">
       <thead>
-        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
-          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Fonte / campanha</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Leads</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Agend.</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Taxa agend.</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Presença</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Show-up %</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Conversões</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Taxa conv.</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Gasto tráfego</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Receita (est.)</th>
-          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">ROAS</th>
-        </tr>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">${thHtml}</tr>
       </thead>
       <tbody>
         ${rows.map((d,idx)=>{
-          const taxaAgend=pct(d.agend,d.total);
-          const taxaShow=pct(d.presenca,d.agend);
-          const taxaConv=pct(d.conv,d.total);
           return `
             <tr style="${idx%2===0?'':'background:#fafbfc'}">
-              <td style="padding:10px 14px;font-weight:600;color:#1e2432;max-width:260px">${d.fonte}${d.pb?` <span style="font-weight:400;color:#94a3b8;font-size:10px">[PB${d.pb}]</span>`:''}</td>
+              <td style="padding:10px 14px;font-weight:600;color:#1e2432;max-width:280px">${d.fonte}${d.pb?` <span style="font-weight:400;color:#94a3b8;font-size:10px">[PB${d.pb}${d.tipo?' · '+d.tipo:''}]</span>`:''}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.total}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.agend}</td>
-              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaAgend)}">${taxaAgend}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(d.taxaAgend)}">${pctFmt(d.taxaAgend)}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.presenca}</td>
-              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaShow)}">${taxaShow}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(d.taxaShow)}">${pctFmt(d.taxaShow)}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.conv}</td>
-              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaConv)}">${taxaConv}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(d.taxaConv)}">${pctFmt(d.taxaConv)}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.gasto>0?fmtR(d.gasto):'—'}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.receita>0?fmtR(d.receita):'—'}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${corRoas(d.roas)}">${d.roas!==null?d.roas.toFixed(2).replace('.',',')+'×':'—'}</td>
@@ -109,6 +155,15 @@ function renderMktFonteTable(){
       </tbody>
     </table>
   `;
+
+  el.querySelectorAll('th[data-sortable="true"]').forEach(th=>{
+    th.onclick=()=>{
+      const k=th.dataset.key;
+      if(mktFonteSort.key===k){mktFonteSort.dir=mktFonteSort.dir==='asc'?'desc':'asc';}
+      else{mktFonteSort={key:k,dir:'desc'};}
+      renderMktFonteTable();
+    };
+  });
 }
 function initMktCharts(){
   const base=flowRecords.filter(byHunter);
