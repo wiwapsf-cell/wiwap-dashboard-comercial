@@ -18,9 +18,97 @@ function renderMkt(){
   setTxt('mk-inv',fmtR(invTotal));
   setTxt('mk-msgs',fmt(msgsAb+msgsS2));
   setTxt('mk-msgs-s',`${msgsAb} Abandono · ${msgsS2} CA S2`);
+  renderMktFonteTable();
 
   if(mktInited)return; mktInited=true;
   initMktCharts();
+}
+
+// Extrai o código de público [PB##] de qualquer string (fonte do lead OU nome da campanha
+// na planilha de tráfego) — aceita "PB05", "PB-02", "PB07-B" etc, sempre pegando os 2 dígitos
+function extractPB(s){
+  const m=String(s||'').match(/PB-?(\d{2})/i);
+  return m?m[1]:null;
+}
+
+function renderMktFonteTable(){
+  const el=document.getElementById('mk-tbl-fontes');
+  if(!el)return;
+  const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+
+  if(base.length===0){
+    el.innerHTML='<div style="padding:24px;text-align:center;color:#94a3b8;font-family:\'Plus Jakarta Sans\',sans-serif;font-size:12px">Sem leads no período</div>';
+    return;
+  }
+
+  const fonteMap={};
+  for(const r of base){
+    const f=(r.fonte||'Sem fonte').trim()||'Sem fonte';
+    if(!fonteMap[f])fonteMap[f]={total:0,agend:0,presenca:0,conv:0};
+    fonteMap[f].total++;
+    if(r.dt_apresentacao)fonteMap[f].agend++;
+    if(r.dt_apresentacao&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada'))fonteMap[f].presenca++;
+    if(r.etapa==='Pagamento Recebido')fonteMap[f].conv++;
+  }
+
+  const ticket=getTicketMedioReal();
+  const metaPeriodo=metaRecords.filter(r=>inPeriod(r.dt_inicio));
+
+  const fontes=Object.keys(fonteMap).sort((a,b)=>fonteMap[b].total-fonteMap[a].total);
+
+  const rows=fontes.map(f=>{
+    const d=fonteMap[f];
+    const pb=extractPB(f);
+    const gasto=pb?metaPeriodo.filter(r=>extractPB(r.campanha)===pb).reduce((s,r)=>s+r.valor,0):0;
+    const receita=d.conv*ticket;
+    const roas=gasto>0?receita/gasto:null;
+    return {fonte:f,pb,...d,gasto,receita,roas};
+  });
+
+  const pct=(n,d)=>d>0?(n/d*100).toFixed(1)+'%':'—';
+  const cor=(v)=>{const n=parseFloat(v);if(isNaN(n))return'#94a3b8';if(n>=50)return'#059669';if(n>=25)return'#d97706';return'#dc2626';};
+  const corRoas=(r)=>{if(r===null)return'#94a3b8';if(r>=3)return'#059669';if(r>=1)return'#d97706';return'#dc2626';};
+
+  el.innerHTML=`
+    <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0">
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Fonte / campanha</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Leads</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Agend.</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Taxa agend.</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Presença</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Show-up %</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Conversões</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Taxa conv.</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Gasto tráfego</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">Receita (est.)</th>
+          <th style="padding:10px 14px;text-align:right;font-size:10px;font-weight:700;color:#8892a3;text-transform:uppercase;letter-spacing:.5px">ROAS</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((d,idx)=>{
+          const taxaAgend=pct(d.agend,d.total);
+          const taxaShow=pct(d.presenca,d.agend);
+          const taxaConv=pct(d.conv,d.total);
+          return `
+            <tr style="${idx%2===0?'':'background:#fafbfc'}">
+              <td style="padding:10px 14px;font-weight:600;color:#1e2432;max-width:260px">${d.fonte}${d.pb?` <span style="font-weight:400;color:#94a3b8;font-size:10px">[PB${d.pb}]</span>`:''}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.total}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.agend}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaAgend)}">${taxaAgend}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.presenca}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaShow)}">${taxaShow}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.conv}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${cor(taxaConv)}">${taxaConv}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.gasto>0?fmtR(d.gasto):'—'}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.receita>0?fmtR(d.receita):'—'}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${corRoas(d.roas)}">${d.roas!==null?d.roas.toFixed(2).replace('.',',')+'×':'—'}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
 }
 function initMktCharts(){
   const base=flowRecords.filter(byHunter);
@@ -82,18 +170,6 @@ function initMktCharts(){
     xAxis:{type:'category',data:ldias.map(d=>d.slice(5).split('-').reverse().join('/')),axisLabel:{...AX,fontSize:9}},
     yAxis:{type:'value',axisLabel:{...AX,fontSize:9},splitLine:{lineStyle:{color:'#f1f5f9'}}},
     series:[{name:'Leads',type:'line',smooth:true,data:ldias.map(d=>leadDay[d]),lineStyle:{color:TL,width:2},itemStyle:{color:TL},symbol:'circle',symbolSize:4,areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(0,160,163,.22)'},{offset:1,color:'rgba(0,160,163,.02)'}]}}}]
-  });
-  // Volume por fonte + taxa conversão
-  const fonteMap={};
-  for(const r of base.filter(r=>inPeriod(r.criado_em))){const f=simplifyFonte(r.fonte);if(!fonteMap[f])fonteMap[f]={vol:0,conv:0};fonteMap[f].vol++;if(r.dt_pagamento&&r.etapa==='Pagamento Recebido')fonteMap[f].conv++;}
-  const fArr=Object.entries(fonteMap).sort((a,b)=>b[1].vol-a[1].vol).slice(0,10);
-  const c4=ec('ch-mkt-fonte');
-  if(c4)c4.setOption({
-    tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
-    grid:{top:12,right:44,bottom:48,left:36},
-    xAxis:{type:'category',data:fArr.map(f=>f[0]),axisLabel:{...AX,fontSize:9,rotate:12}},
-    yAxis:[{type:'value',axisLabel:{...AX,fontSize:9},splitLine:{lineStyle:{color:'#f1f5f9'}}},{type:'value',max:20,axisLabel:{...AX,fontSize:9,formatter:'{value}%'},splitLine:{show:false}}],
-    series:[{name:'Volume (leads)',type:'bar',data:fArr.map(f=>f[1].vol),barMaxWidth:36,itemStyle:{color:p=>{const v=fArr[p.dataIndex][1].vol;return v>=40?TL:v>=20?TL2:'#b2e4e5';},borderRadius:[4,4,0,0]}},{name:'Taxa conversão',type:'line',yAxisIndex:1,data:fArr.map(f=>f[1].vol>0?+(f[1].conv/f[1].vol*100).toFixed(1):0),lineStyle:{color:NV,width:2},itemStyle:{color:NV},symbol:'circle',symbolSize:6,label:{show:true,position:'top',formatter:p=>p.value>0?p.value+'%':'',fontSize:9,fontFamily:F,color:NV}}]
   });
   // Gasto vs receita mensal (histórico)
   const gMonth={},rMonth={};
