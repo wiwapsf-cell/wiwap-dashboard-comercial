@@ -98,7 +98,25 @@ function renderMktFonteTable(){
   const ticket=getTicketMedioReal();
   const metaPeriodo=metaRecords.filter(r=>inPeriod(r.dt_inicio));
 
+  // Maturidade da coorte: quantos dias já se passaram desde o FIM do período selecionado.
+  // Um lote de leads muito recente ainda não teve tempo de completar o ciclo de vendas
+  // (Leads → Agend. → Presença → Conversão), então o ROAS Coorte dele vai aparecer baixo
+  // ou incompleto — isso não é o investimento "não performando", é só falta de tempo.
+  const {end:periodoFim}=computeRange();
+  const diasDesdeFim=Math.floor((new Date(maxDate+'T12:00:00')-new Date(periodoFim+'T12:00:00'))/86400000);
+  const MATURIDADE_MIN=21; // dias — abaixo disso, avisamos que a coorte ainda está "verde"
+  const coorteImatura=diasDesdeFim<MATURIDADE_MIN;
+
   const fontes=Object.keys(fonteMap);
+
+  // Conversões por COORTE: dos leads CRIADOS no período (baseLeads), quantos já converteram
+  // até HOJE — sem limite de data pra frente, dando tempo pro lote inteiro fechar o ciclo
+  const coorteConvMap={};
+  baseLeads.forEach(r=>{
+    if(r.etapa!=='Pagamento Recebido')return;
+    const f=(r.fonte||'Sem fonte').trim()||'Sem fonte';
+    coorteConvMap[f]=(coorteConvMap[f]||0)+1;
+  });
 
   let rows=fontes.map(f=>{
     const d=fonteMap[f];
@@ -119,10 +137,15 @@ function renderMktFonteTable(){
     const gasto=gastoRecs.reduce((s,r)=>s+r.valor,0);
     const receita=d.conv*ticket;
     const roas=gasto>0?receita/gasto:null;
+    // ROAS Coorte: receita de quem NASCEU no período (não importa quando pagou) ÷ o
+    // mesmo gasto do período (dinheiro que gerou esse lote de leads)
+    const coorteConv=coorteConvMap[f]||0;
+    const coorteReceita=coorteConv*ticket;
+    const coorteRoas=gasto>0?coorteReceita/gasto:null;
     const taxaAgend=d.total>0?+(d.agend/d.total*100).toFixed(1):0;
     const taxaShow=d.agend>0?+(d.presenca/d.agend*100).toFixed(1):0;
     const taxaConv=d.total>0?+(d.conv/d.total*100).toFixed(1):0;
-    return {fonte:f,pb,matchKey,tipo,...d,taxaAgend,taxaShow,taxaConv,gasto,receita,roas};
+    return {fonte:f,pb,matchKey,tipo,...d,taxaAgend,taxaShow,taxaConv,gasto,receita,roas,coorteConv,coorteReceita,coorteRoas};
   });
 
   // Ordenação
@@ -149,7 +172,8 @@ function renderMktFonteTable(){
     {key:'taxaConv',label:'Taxa conv.',align:'right',sortable:true},
     {key:'gasto',label:'Gasto tráfego',align:'right',sortable:true},
     {key:'receita',label:'Receita (est.)',align:'right',sortable:true},
-    {key:'roas',label:'ROAS',align:'right',sortable:true},
+    {key:'roas',label:'ROAS período',align:'right',sortable:true},
+    {key:'coorteRoas',label:'ROAS coorte'+(coorteImatura?' ⏱':''),align:'right',sortable:true},
   ];
 
   const thHtml=cols.map(c=>{
@@ -178,6 +202,7 @@ function renderMktFonteTable(){
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.gasto>0?fmtR(d.gasto):'—'}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;color:#4a5468">${d.receita>0?fmtR(d.receita):'—'}</td>
               <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${corRoas(d.roas)}">${d.roas!==null?d.roas.toFixed(2).replace('.',',')+'×':'—'}</td>
+              <td style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;color:${corRoas(d.coorteRoas)}" title="${d.coorteConv} conversão(ões) de leads nascidos no período, considerando até hoje">${d.coorteRoas!==null?d.coorteRoas.toFixed(2).replace('.',',')+'×':'—'}</td>
             </tr>`;
         }).join('')}
       </tbody>
