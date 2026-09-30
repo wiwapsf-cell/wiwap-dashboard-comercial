@@ -25,23 +25,25 @@ function renderMkt(){
 }
 
 // Extrai o código de público [PB##] de qualquer string (fonte do lead OU nome da campanha
-// na planilha de tráfego) — aceita "PB05", "PB-02", "PB07-B" etc, sempre pegando os 2 dígitos.
-// OBS: a variação "-B" (ex: PB07-B, geralmente um teste de criativo) é tratada como o MESMO
-// código PB07 aqui, porque não temos confirmação se o Bitrix chega a diferenciar isso na fonte
-// do lead. Se o Bitrix também diferenciar, me avise que eu separo o gasto certinho.
+// na planilha de tráfego) — aceita "PB05", "PB-02", "PB07-B", "PB07" etc.
+// IMPORTANTE: o sufixo de letra (ex: "-B" em PB07-B) é PRESERVADO e faz parte do código —
+// confirmado que o Bitrix diferencia isso na fonte do lead ("[PB07]" vs "[PB07-B]" são
+// campanhas/públicos DIFERENTES, não a mesma coisa). "PB07" e "PB07-B" nunca se misturam.
 function extractPB(s){
-  const m=String(s||'').match(/PB-?(\d{2})/i);
-  return m?m[1]:null;
+  const m=String(s||'').match(/PB-?(\d{2})-?([A-Z])?/i);
+  if(!m)return null;
+  return m[2]?m[1]+'-'+m[2].toUpperCase():m[1];
 }
 // Classifica o SUBTIPO de campanha (Formulário / LP Geral / LP de Agendamento) — usado
 // para não misturar o gasto de campanhas diferentes que compartilham o mesmo código PB##.
 // Funciona tanto no nome da campanha (planilha de tráfego) quanto na fonte do lead (Bitrix),
-// porque reconhece as duas convenções de nomenclatura.
+// reconhecendo as duas convenções de nomenclatura, com ou sem hífen/espaço (ex: "LP-GERAL",
+// "LP Geral", "FORMS-INST", "Formulário").
 function classifyTipoCampanha(s){
   const t=String(s||'');
-  if(/LP\s*de\s*Agendamento/i.test(t))return'LP de Agendamento';
+  if(/LP[\s-]*de[\s-]*Agendamento/i.test(t))return'LP de Agendamento';
   if(/FORMS?-?INST/i.test(t)||/Formul[aá]rio/i.test(t))return'Formulário';
-  if(/LP\s*Geral/i.test(t))return'LP Geral';
+  if(/LP[\s-]*Geral/i.test(t))return'LP Geral';
   if(/\[LP\]/i.test(t))return'LP Geral';
   return null;
 }
