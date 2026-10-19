@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/sdr.css">
+<link rel="stylesheet" href="/css/bot.css">
 </head>
 <body>
 
@@ -18,231 +19,20 @@
   <div class="chips" id="chips"><button class="chip" data-p="hoje">Hoje</button><button class="chip" data-p="d1">D-1</button><button class="chip" data-p="7d">7d</button><button class="chip on" data-p="30d">30d</button><button class="chip" data-p="90d">90d</button><button class="chip" data-p="12m">12m</button><button class="chip" data-p="tudo">Tudo</button></div>
   <div class="dr"><input type="date" id="dt-start"> <span>→</span> <input type="date" id="dt-end"><button class="bok" id="dt-ok">OK</button></div>
   <div class="vsep"></div>
-  <div class="hsel"><span>HUNTER</span><select id="hunter-sel"><option value="">Todos</option><option>Ana Melo</option><option>Elizabete Soares</option><option>Jade Sena</option><option>Jose Rodrigo Moreira</option><option>Vinicius Pedro</option></select></div>
+  <div class="hsel"><span>HUNTER</span><select id="hunter-sel"><option value="">Todos</option><option>Ana Melo</option><option>Elizabete Soares</option><option>Jade Sena</option><option>Jose Rodrigo Moreira</option><option>Vinicius Pedro</option><option>Patrícia Rezende</option></select></div>
   <div class="hf"></div><div class="upd" id="upd">Carregando…</div>
 </div>
 <div class="tabs">
   <button class="tb on" onclick="tab('com',this)">🎯 Comercial</button>
+  <button class="tb" onclick="tab('bot',this)">🤖 Bot</button>
   <button class="tb" onclick="tab('acomp',this)">📊 Acompanhamento</button>
   <button class="tb" onclick="tab('mkt',this)">📣 Marketing</button>
   <button class="tb" onclick="tab('sdr',this)">📋 SDR</button>
 </div>
 <div class="wrap">
-<div class="pane on" id="pane-com">
-<div class="krow">
-  <div class="kc nv"><div class="kl">Leads Recebidos <span class="ktag">CRIADO</span></div><div class="kv nv" id="k-leads">—</div><div class="ks" id="k-leads-s">Sem outros segmentos</div></div>
-  <div class="kc nv"><div class="kl">Agendadas <span class="ktag">AGENDAMENTO</span></div><div class="kv nv" id="k-ag">—</div><div class="ks" id="k-ag-s">—</div></div>
-  <div class="kc tl"><div class="kl">Realizadas <span class="ktag">SHOW-UP</span></div><div class="kv tl" id="k-real">—</div><div class="ks" id="k-real-s">Interação=Reunião ou Show-up</div></div>
-  <div class="kc gr"><div class="kl">Show-up %</div><div class="kv gr" id="k-show">—</div><div class="ks" id="k-show-s">—</div></div>
-  <div class="kc rd"><div class="kl">No-show %</div><div class="kv rd" id="k-noshow">—</div><div class="ks" id="k-noshow-s">—</div></div>
-</div>
-<div class="krow" style="margin-bottom:14px">
-  <div class="kc or"><div class="kl">Lig. Pendentes</div><div class="kv or" id="k-ligpend">—</div><div class="ks">Backlog ativo agora</div></div>
-  <div class="kc pu"><div class="kl">Lig. Realizadas</div><div class="kv pu" id="k-ligreal">—</div><div class="ks" id="k-ligreal-s">—</div></div>
-  <div class="kc gr"><div class="kl">Pagamentos</div><div class="kv gr" id="k-pag">—</div><div class="ks">Clientes convertidos</div></div>
-  <div class="kc tl"><div class="kl">Conv. Global <span class="ktag">CRIADO</span></div><div class="kv tl" id="k-conv">—</div><div class="ks">Pagamentos / Leads</div></div>
-  <div class="kc gr"><div class="kl">Faturamento <span class="ktag">PAGAMENTO</span></div><div class="kv gr" id="k-fat" style="font-size:17px">—</div><div class="ks" id="k-fat-s">—</div></div>
-</div>
-<div class="panel" style="margin-bottom:11px">
-  <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Funil de conversão</div>
-  <div class="ps">Caminho do lead: leads → agendadas → realizadas → pagamento</div>
-  <div id="ch-funil" style="height:260px"></div>
-</div>
-<div class="sl">Por etapa do funil</div>
-<!-- 1 NOVOS LEADS -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#f0f9ff">
-    <div class="stage-ico" style="background:#0ea5e9">1</div>
-    <div class="stage-info"><div class="stage-name">Novos Leads</div><div class="stage-desc">SDR qualifica e tenta agendar — leads recém chegados via formulário de captação</div></div>
-    <span class="pill p2">SDR — Letícia</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Total recebidos</div><div class="mkv" id="s1-total">—</div></div>
-      <div class="mk"><div class="mkl">Agendou reunião</div><div class="mkv gr" id="s1-agend">—</div></div>
-      <div class="mk"><div class="mkl">Abandono (sem resp.)</div><div class="mkv or" id="s1-aband">—</div></div>
-    </div>
-    <div id="ch-novos" style="height:230px"></div>
-  </div>
-</div>
-<!-- 2 ABANDONO -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#e0f7f7">
-    <div class="stage-ico" style="background:var(--teal)">2</div>
-    <div class="stage-info"><div class="stage-name">Abandono Pós Cadastro</div><div class="stage-desc">Template automático via API Oficial (Meta) — n8n dispara em horário comercial</div></div>
-    <span class="pill ptl">API Oficial (Meta)</span><span class="pill p2" style="margin-left:4px">n8n</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Templates enviados</div><div class="mkv tl" id="s2-templ">—</div></div>
-      <div class="mk"><div class="mkl">Clicou "Agendar"</div><div class="mkv gr" id="s2-agendar">—</div></div>
-      <div class="mk"><div class="mkl">Virou agenda</div><div class="mkv gr" id="s2-virou">—</div><div class="mksub">Clicou + dt_apresentação</div></div>
-      <div class="mk"><div class="mkl">Clicou "Sem interesse"</div><div class="mkv rd" id="s2-semint">—</div></div>
-      <div class="mk"><div class="mkl">Silêncio 24h</div><div class="mkv or" id="s2-silencio">—</div><div class="mksub">→ CA Hunter</div></div>
-    </div>
-    <div class="g5050">
-      <div id="ch-ab-pie" style="height:210px"></div>
-      <div id="ch-ab-tl" style="height:210px"></div>
-    </div>
-  </div>
-</div>
-<!-- 3 CONTATO ATIVO HUNTER -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#faf5ff">
-    <div class="stage-ico" style="background:var(--pu)">3</div>
-    <div class="stage-info"><div class="stage-name">Contato Ativo Hunter — 3 Situações</div><div class="stage-desc">Hunter aborda diretamente. Canal varia por situação. Cap 15/rodada, jitter 30s–5min.</div></div>
-  </div>
-  <div class="stage-body">
-    <div class="g3">
-      <div class="panel" style="border-color:var(--teal)">
-        <div class="pt"><div class="ptb" style="background:var(--teal)"></div>S1 — Solicitou msg do hunter</div>
-        <div class="ps"><span class="pill ptl">Whapi — canal pessoal</span></div>
-        <div class="mks" style="margin-bottom:8px">
-          <div class="mk"><div class="mkl">Disparos</div><div class="mkv tl" id="ca-s1-disp">—</div></div>
-          <div class="mk"><div class="mkl">→ Nutrição</div><div class="mkv rd" id="ca-s1-nut">—</div></div>
-        </div>
-        <div id="ch-s1" style="height:150px"></div>
-      </div>
-      <div class="panel" style="border-color:var(--navy)">
-        <div class="pt"><div class="ptb" style="background:var(--navy)"></div>S2 — Não respondeu SDR</div>
-        <div class="ps"><span class="pill p2" style="background:#e8eef5;color:var(--navy)">API Oficial (Meta)</span></div>
-        <div class="mks" style="margin-bottom:8px">
-          <div class="mk"><div class="mkl">D0</div><div class="mkv nv" id="ca-s2-d0">—</div></div>
-          <div class="mk"><div class="mkl">D+1</div><div class="mkv nv" id="ca-s2-d1">—</div></div>
-          <div class="mk"><div class="mkl">Respondeu</div><div class="mkv gr" id="ca-s2-resp">—</div></div>
-          <div class="mk"><div class="mkl">→ Nutrição</div><div class="mkv rd" id="ca-s2-nut">—</div></div>
-        </div>
-        <div id="ch-s2" style="height:150px"></div>
-      </div>
-      <div class="panel" style="border-color:var(--or)">
-        <div class="pt"><div class="ptb" style="background:var(--or)"></div>S3 — No-show</div>
-        <div class="ps"><span class="pill ptl">Whapi — canal pessoal</span></div>
-        <div class="mks" style="margin-bottom:8px">
-          <div class="mk"><div class="mkl">Disparo D0</div><div class="mkv or" id="ca-s3-d0">—</div></div>
-          <div class="mk"><div class="mkl">Disparo D+2</div><div class="mkv or" id="ca-s3-d2">—</div></div>
-          <div class="mk"><div class="mkl">→ Nutrição</div><div class="mkv rd" id="ca-s3-nut">—</div></div>
-        </div>
-        <div id="ch-s3" style="height:150px"></div>
-      </div>
-    </div>
-  </div>
-</div>
-<!-- 4 REUNIÃO -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#eef3f8">
-    <div class="stage-ico" style="background:var(--navy)">4</div>
-    <div class="stage-info"><div class="stage-name">Reunião Agendada</div><div class="stage-desc">Data e horário definidos — hunter apresenta a solução ao vivo</div></div>
-    <span class="pill p2" style="background:#e8eef5;color:var(--navy)">Hunter + SDR</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Agendadas</div><div class="mkv nv" id="s4-agend">—</div></div>
-      <div class="mk"><div class="mkl">Realizadas (Show-up)</div><div class="mkv gr" id="s4-real">—</div></div>
-      <div class="mk"><div class="mkl">No-show → CA S3</div><div class="mkv rd" id="s4-noshow">—</div></div>
-    </div>
-    <div id="ch-reuniao" style="height:220px"></div>
-  </div>
-</div>
-<!-- 5 SHOW-UP -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#f0fdf4">
-    <div class="stage-ico" style="background:var(--gr)">5</div>
-    <div class="stage-info"><div class="stage-name">Show-up</div><div class="stage-desc">Lead participou da reunião. Hunter envia follow-up manual → automação assume se não houver resposta</div></div>
-    <span class="pill ptl">Whapi</span><span class="pill p2" style="margin-left:4px">n8n</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Total em Show-up</div><div class="mkv gr" id="s5-total">—</div></div>
-      <div class="mk"><div class="mkl">Lig. pendentes</div><div class="mkv or" id="s5-ligpend">—</div></div>
-      <div class="mk"><div class="mkl">M1 enviado</div><div class="mkv tl" id="s5-m1">—</div></div>
-      <div class="mk"><div class="mkl">M2 enviado</div><div class="mkv tl" id="s5-m2">—</div></div>
-      <div class="mk"><div class="mkl">Avançou → Interação</div><div class="mkv gr" id="s5-avancou">—</div></div>
-      <div class="mk"><div class="mkl">→ Nutrição</div><div class="mkv rd" id="s5-nut">—</div></div>
-    </div>
-    <div class="g3">
-      <div id="ch-su-hora" style="height:200px"></div>
-      <div id="ch-su-hunter" style="height:200px"></div>
-      <div id="ch-su-dia" style="height:200px"></div>
-    </div>
-    <div class="g5050" style="margin-top:11px;margin-bottom:0">
-      <div id="ch-su-lig" style="height:180px"></div>
-      <div id="ch-su-m" style="height:180px"></div>
-    </div>
-  </div>
-</div>
-<!-- 6 INTERAÇÃO -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#f5f3ff">
-    <div class="stage-ico" style="background:var(--pu)">6</div>
-    <div class="stage-info"><div class="stage-name">Interação</div><div class="stage-desc">Negociação ativa — lead tira dúvidas e analisa a proposta. Automação aciona M1 após 5 dias de silêncio.</div></div>
-    <span class="pill ptl">Whapi</span><span class="pill p2" style="margin-left:4px">n8n</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Total em Interação</div><div class="mkv pu" id="s6-total">—</div></div>
-      <div class="mk"><div class="mkl">M1 disparado</div><div class="mkv tl" id="s6-m1">—</div></div>
-    </div>
-    <div id="ch-inter" style="height:200px"></div>
-  </div>
-</div>
-<!-- 7 NEGOCIAÇÃO QUENTE -->
-<div class="stage-wrap">
-  <div class="stage-head" style="background:#fffbeb">
-    <div class="stage-ico" style="background:var(--am)">7</div>
-    <div class="stage-info"><div class="stage-name">Negociação Quente</div><div class="stage-desc">Fase decisória — hunter registra motivo ao mover o lead. Define qual automação é ativada.</div></div>
-    <span class="pill px">Hunter + n8n</span>
-  </div>
-  <div class="stage-body">
-    <div class="mks">
-      <div class="mk"><div class="mkl">Total em NG</div><div class="mkv or" id="s7-total">—</div></div>
-      <div class="mk"><div class="mkl">Link de pag. enviado</div><div class="mkv or" id="s7-link">—</div><div class="mksub">+3h: lig; +24h: nutrição</div></div>
-      <div class="mk"><div class="mkl">Deseja contato futuro</div><div class="mkv" style="color:var(--am)" id="s7-futuro">—</div></div>
-    </div>
-    <div class="g5050">
-      <div id="ch-ng-motivo" style="height:190px"></div>
-      <div id="ch-ng-lig" style="height:190px"></div>
-    </div>
-  </div>
-</div>
-<div class="sl">Ranking e resultados</div>
-<div class="panel" style="margin-bottom:11px">
-  <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Ranking de hunters</div>
-  <div class="ps">Funil completo por hunter</div>
-  <table class="dt"><thead><tr><th>#</th><th>Hunter</th><th>Agendadas</th><th>Realizadas</th><th>Show-up</th><th>Interações</th><th>Neg. Quente</th><th>Pagamentos</th><th>Faturamento</th><th>Lig. Pend.</th></tr></thead><tbody id="rk-body"></tbody></table>
-</div>
-<div class="g3560">
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Ranking de estados</div>
-    <div class="ps">Volume, conversões e taxa por UF</div>
-    <div style="max-height:320px;overflow-y:auto"><table class="dt"><thead><tr><th>UF</th><th>Leads</th><th>Conv.</th><th>Taxa</th></tr></thead><tbody id="est-body"></tbody></table></div>
-  </div>
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Faturamento por hunter</div>
-    <div class="ps">Faturamento realizado no período por hunter (dados planilha faturamento)</div>
-    <div id="ch-fat-hunter" style="height:280px"></div>
-  </div>
-</div>
-<div class="sl">Impacto de ligações e API Oficial nas conversões</div>
-<div class="g2">
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--gr)"></div>Conversões que passaram por ligação atendida</div>
-    <div class="ps">Leads em Pagamento Recebido com Resultado Ligação = "Atendeu" em alguma etapa</div>
-    <div class="mks"><div class="mk"><div class="mkl">Pagamentos totais</div><div class="mkv gr" id="imp-lig-pag">—</div></div><div class="mk"><div class="mkl">Com ligação atendida</div><div class="mkv gr" id="imp-lig-at">—</div></div><div class="mk"><div class="mkl">Receita influenciada</div><div class="mkv gr" id="imp-lig-rec" style="font-size:13px">—</div></div></div>
-    <div id="ch-lig-conv" style="height:150px"></div>
-  </div>
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--navy)"></div>Conversões que receberam mensagem da API Oficial</div>
-    <div class="ps">Leads em Pagamento Recebido que receberam disparo via API Oficial (Abandono ou CA S2)</div>
-    <div class="mks"><div class="mk"><div class="mkl">Pagamentos totais</div><div class="mkv nv" id="imp-api-pag">—</div></div><div class="mk"><div class="mkl">Receberam API Oficial</div><div class="mkv nv" id="imp-api-rec">—</div></div><div class="mk"><div class="mkl">Receita recuperada</div><div class="mkv gr" id="imp-api-recrec" style="font-size:13px">—</div></div></div>
-    <div id="ch-api-conv" style="height:150px"></div>
-  </div>
-</div>
-<div class="panel" style="margin-bottom:11px">
-  <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Ligações por hunter — pendentes vs realizadas e taxa de atendimento</div>
-  <div class="ps">Backlog de ligações pendentes, total realizadas e % de atendimento efetivo (campo [Geral] Ligação Pendente + Resultado Ligação)</div>
-  <div id="ch-lig-hunter" style="height:240px"></div>
-</div>
-</div><!-- /pane-com -->
+<div class="pane on" id="pane-com"><div class="panel"><div class="pt">Funil comercial</div><div class="ps">Leads criados no período selecionado. Avanços registrados até a última atualização.</div><div id="ch-funil" style="height:300px"></div><div id="com-tags" class="bot-tags"></div></div></div>
+<div class="pane" id="pane-bot"><div class="panel"><div class="pt">Bot Wiwap · da primeira conversa ao próximo passo</div><div class="ps">Leads criados no período · responsável atual no CRM · histórico disponível até a última sincronização.</div><div id="bot-coverage" class="bot-note"></div></div><div id="bot-kpis" class="krow"></div><div class="g2"><div class="panel"><div class="pt">Retomadas registradas</div><div class="ps">Leads com ao menos um registro de cada tentativa; o mesmo lead pode aparecer em mais de uma.</div><div id="bot-followups" class="bot-tags"></div></div><div class="panel"><div class="pt">Situação atual dos atendimentos</div><div id="bot-status" class="bot-tags"></div></div></div><div class="panel"><div class="pt">Acompanhamento do bot</div><label>Buscar por nome ou ID <input id="bot-search" type="search" placeholder="Nome ou ID do card" oninput="renderBot()"></label><div id="bot-table" style="overflow:auto;max-height:650px"></div></div></div>
+
 
 <div class="pane" id="pane-acomp">
 
@@ -456,6 +246,7 @@
 
 </div><!-- /wrap -->
 <script src="/js/core.js"></script>
+<script src="/js/bot.js"></script>
 <script src="/js/comercial.js"></script>
 <script src="/js/acompanhamento.js"></script>
 <script src="/js/marketing.js"></script>
