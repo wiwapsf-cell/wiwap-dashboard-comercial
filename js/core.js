@@ -63,11 +63,11 @@ function countBusinessDaysUpTo(year,month,day){
 }
 
 // ===== HUNTERS =====
-const HUNTERS_WHITELIST=['Ana Melo','Elizabete Soares','Jade Sena','Jose Rodrigo Moreira','Vinicius Pedro'];
+const HUNTERS_WHITELIST=['Ana Melo','Elizabete Soares','Jade Sena','Jose Rodrigo Moreira','Vinicius Pedro','Patrícia Rezende'];
 const normName=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 const WHITELIST_NORM=HUNTERS_WHITELIST.map(normName);
 function isHunter(name){return WHITELIST_NORM.includes(normName(name));}
-function canonHunter(name){const i=WHITELIST_NORM.indexOf(normName(name));return i>=0?HUNTERS_WHITELIST[i]:null;}
+function canonHunter(name){if(normName(name)==='jose moreira')return 'Jose Rodrigo Moreira';const i=WHITELIST_NORM.indexOf(normName(name));return i>=0?HUNTERS_WHITELIST[i]:null;}
 // Match hunter no faturamento (primeiro nome)
 function matchFat(r,hunter){
   if(!hunter)return true;

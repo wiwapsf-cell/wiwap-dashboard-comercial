@@ -55,7 +55,7 @@ function tab(id,el){
   document.getElementById('pane-'+id).classList.add('on');
   activeTab=id;
   if(id==='mkt'){renderMkt();}
-  if(id==='sdr'){renderSDR();}
+  if(id==='sdr'){renderSDR();}if(id==='bot'){renderBot();}
   setTimeout(resizeVisible,60);
 }
 
@@ -92,17 +92,8 @@ const ligCutoff=r=>r.criado_em>=LIGACAO_CUTOFF;
 // RENDER PRINCIPAL
 // ══════════════════════════════════════════════════════════════
 function renderAll(){
-  renderKPIs();
   renderFunil();
-  renderStage1();
-  renderStage2();
-  renderStage3();
-  renderStage4();
-  renderStage5();
-  renderStage6();
-  renderStage7();
-  renderRankings();
-  renderImpacto();
+  renderBot();
   renderAcomp();
   if(activeTab==='mkt'){mktInited=false;renderMkt();}
   if(activeTab==='sdr'){renderSDR();}
@@ -163,19 +154,13 @@ function renderKPIs(){
 // FUNIL
 // ══════════════════════════════════════════════════════════════
 function renderFunil(){
-  const base=flowRecords.filter(byHunter);
-  const leads=base.filter(r=>inPeriod(r.criado_em)).length;
-  const ag=base.filter(r=>inPeriod(r.dt_apresentacao)).length;
-  const real=base.filter(r=>inPeriod(r.dt_apresentacao)&&nstr(novo(r.id_bitrix),'[Show-up] Data entrada')).length;
-  const pag=base.filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido').length;
-  const chart=ec('ch-funil'); if(!chart)return;
-  const denom=leads||1;
-  chart.setOption({
-    tooltip:{trigger:'item',formatter:p=>`${p.name}<br/><b>${p.value}</b> (${(p.value/denom*100).toFixed(1)}%)`,...TP},
-    series:[{type:'funnel',left:'15%',right:'15%',top:14,bottom:14,min:0,max:denom,minSize:'28%',maxSize:'100%',sort:'descending',gap:4,
-      data:[{value:leads,name:'Leads recebidos',itemStyle:{color:TL}},{value:ag,name:'Agendadas',itemStyle:{color:'#008f92'}},{value:real,name:'Realizadas',itemStyle:{color:NV}},{value:pag,name:'Pagamento',itemStyle:{color:'#002040'}}],
-      label:{show:true,position:'inside',color:'#fff',fontFamily:F,fontWeight:700,formatter:p=>`${p.name}\n${p.value}  ${(p.value/denom*100).toFixed(1)}%`,fontSize:12}}]
-  });
+ const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+ const reached=base.filter(r=>r.dt_apresentacao||r.dt_reuniao_agendada);
+ const real=base.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
+ const paid=base.filter(r=>r.dt_pagamento||r.etapa==='Pagamento Recebido');
+ const c=ec('ch-funil');if(c)c.setOption({tooltip:{trigger:'item',...TP},series:[{type:'funnel',sort:'none',left:'15%',right:'15%',top:15,bottom:15,gap:5,min:0,max:Math.max(base.length,reached.length,real.length,paid.length,1),label:{show:true,position:'inside',formatter:'{b}: {c}'},data:[{name:'Leads recebidos',value:base.length,itemStyle:{color:TL}},{name:'Agendamento registrado',value:reached.length,itemStyle:{color:'#008f92'}},{name:'Presença registrada',value:real.length,itemStyle:{color:NV}},{name:'Pagamento registrado',value:paid.length,itemStyle:{color:'#002040'}}]}]});
+ const groups={};for(const r of base)groups[r.etapa||'Sem etapa']=(groups[r.etapa||'Sem etapa']||0)+1;
+ document.getElementById('com-tags').innerHTML=Object.entries(groups).map(([k,v])=>'<span class="bot-tag">'+botEscape(k)+' <b>'+v+'</b></span>').join('');
 }
 
 // ══════════════════════════════════════════════════════════════
