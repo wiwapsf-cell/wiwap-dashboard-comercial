@@ -56,8 +56,8 @@ function renderAcomp(){
   const container=document.getElementById('hunter-cards-container');
   if(container){
     const showH=selectedHunter?[selectedHunter]:H;
-    const inis={'Ana Melo':'AM','Elizabete Soares':'ES','Jade Sena':'JS','Jose Rodrigo Moreira':'JR','Vinicius Pedro':'VP'};
-    const cols={'Ana Melo':PU,'Elizabete Soares':NV,'Jade Sena':TL,'Jose Rodrigo Moreira':OR,'Vinicius Pedro':GR};
+    const inis={'Ana Melo':'AM','Elizabete Soares':'ES','Jade Sena':'JS','Jose Rodrigo Moreira':'JR','Vinicius Pedro':'VP','Patrícia Rezende':'PR'};
+    const cols={'Ana Melo':PU,'Elizabete Soares':NV,'Jade Sena':TL,'Jose Rodrigo Moreira':OR,'Vinicius Pedro':GR,'Patrícia Rezende':SK};
     container.innerHTML=showH.map(h=>{
       const fm=fatRecords.filter(r=>r.dt_pagamento&&r.dt_pagamento>=mesIni&&r.dt_pagamento<=maxDate&&!r.estorno&&matchFat(r,h));
       const fs=fatRecords.filter(r=>r.dt_pagamento&&r.dt_pagamento>=semIniISO&&r.dt_pagamento<=maxDate&&!r.estorno&&matchFat(r,h));

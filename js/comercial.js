@@ -6,7 +6,7 @@ function parseCsvPromise(url){
   });
 }
 function loadData(){
-  const safe=u=>parseCsvPromise(u).catch(e=>{console.warn('CSV opcional falhou:',u,e);return{data:[]};});
+  const safe=u=>parseCsvPromise(u).catch(e=>{console.warn('Fonte indisponível');return{data:[],unavailable:true};});
   Promise.all([parseCsvPromise(CSV_URL),safe(CSV_FAT),safe(CSV_META),safe(CSV_NOVO)])
   .then(([bx,ft,mt,nv])=>{
     if(!bx.data||!bx.data.length)throw new Error('Planilha Bitrix vazia');
@@ -19,7 +19,7 @@ function loadData(){
     try{fatRecords=(ft.data||[]).map(processFatRow).filter(r=>r.dt_pagamento&&r.valor>0);for(const r of fatRecords)if(r.dt_pagamento>maxDate&&r.dt_pagamento<=hoje)maxDate=r.dt_pagamento;}catch(e){fatRecords=[];}
     try{metaRecords=(mt.data||[]).map(processMetaRow).filter(r=>r.dt_inicio);}catch(e){metaRecords=[];}
     try{ novoMap={}; for(const row of (nv.data||[])){const id=String(row['ID Bitrix']||'').trim();if(id)novoMap[id]=row;} }catch(e){novoMap={};}
-    setTxt('upd','Atualizado em '+maxDate.split('-').reverse().join('/'));
+    setTxt('upd','Última data nos dados: '+maxDate.split('-').reverse().join('/'));setTxt('data-health',nv.unavailable?'Dados do Bot indisponíveis':'Leitura das planilhas concluída');
     initHeader();
     renderAll();
   })
@@ -54,6 +54,7 @@ function tab(id,el){
   el.classList.add('on');
   document.getElementById('pane-'+id).classList.add('on');
   activeTab=id;
+  updatePageIntro(id);
   if(id==='mkt'){renderMkt();}
   if(id==='sdr'){renderSDR();}if(id==='bot'){renderBot();}
   setTimeout(resizeVisible,60);
@@ -158,7 +159,9 @@ function renderFunil(){
  const reached=base.filter(r=>r.dt_apresentacao||r.dt_reuniao_agendada);
  const real=base.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
  const paid=base.filter(r=>r.dt_pagamento||r.etapa==='Pagamento Recebido');
- const c=ec('ch-funil');if(c)c.setOption({tooltip:{trigger:'item',...TP},series:[{type:'funnel',sort:'none',left:'15%',right:'15%',top:15,bottom:15,gap:5,min:0,max:Math.max(base.length,reached.length,real.length,paid.length,1),label:{show:true,position:'inside',formatter:'{b}: {c}'},data:[{name:'Leads recebidos',value:base.length,itemStyle:{color:TL}},{name:'Agendamento registrado',value:reached.length,itemStyle:{color:'#008f92'}},{name:'Presença registrada',value:real.length,itemStyle:{color:NV}},{name:'Pagamento registrado',value:paid.length,itemStyle:{color:'#002040'}}]}]});
+ const stages=[['Leads recebidos',base.length,'Criados no período'],['Agendamento registrado',reached.length,'Data de reunião ou agendamento'],['Presença registrada',real.length,'Entrada na etapa Show-up'],['Pagamento registrado',paid.length,'Data ou etapa de pagamento']];
+ document.getElementById('commercial-kpis').innerHTML=stages.map(([name,v,desc])=>`<div class="kc"><div class="kl">${name}</div><div class="kv">${fmt(v)}</div><div class="ks">${desc}</div></div>`).join('');
+ document.getElementById('commercial-funnel').innerHTML=stages.map(([name,v],i)=>`<div class="funnel-row"><span class="funnel-number">0${i+1}</span><div class="funnel-label">${name}<small>${base.length?(v/base.length*100).toFixed(1):'0'}% da seleção</small></div><div class="funnel-track"><div class="funnel-fill" style="width:${base.length?Math.min(100,v/base.length*100):0}%"></div></div><strong>${fmt(v)}</strong></div>`).join('');
  const groups={};for(const r of base)groups[r.etapa||'Sem etapa']=(groups[r.etapa||'Sem etapa']||0)+1;
  document.getElementById('com-tags').innerHTML=Object.entries(groups).map(([k,v])=>'<span class="bot-tag">'+botEscape(k)+' <b>'+v+'</b></span>').join('');
 }

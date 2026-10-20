@@ -4,7 +4,7 @@
 const CSV_URL  = "https://docs.google.com/spreadsheets/d/176oVy1668Vy5jRGXkhdMbK5QqXcNUTrmPiaaDikuOv4/export?format=csv&gid=0";
 const CSV_FAT  = "https://docs.google.com/spreadsheets/d/176oVy1668Vy5jRGXkhdMbK5QqXcNUTrmPiaaDikuOv4/export?format=csv&gid=2003547034";
 const CSV_META = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRh52GL5azhYBBvLzLDVTzNK2oIMsNYxWecBjryXJgG3AvhB_OKI-zNvkKa7DVUX_do-Cca7VmuEoVA/pub?gid=1579259108&single=true&output=csv";
-const CSV_NOVO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ0F7GTpa8okqDP2lvXghPGHS0goJKdBV4YbK-d0tumHLwj7BaUnthl63xwe6lgtqdO76OqValImZTN/pub?gid=156694029&single=true&output=csv";
+const CSV_NOVO = "https://docs.google.com/spreadsheets/d/176oVy1668Vy5jRGXkhdMbK5QqXcNUTrmPiaaDikuOv4/export?format=csv&gid=156694029";
 
 // Cores mockup
 const NV='#003462',TL='#00a0a3',TL2='#5fc7c9',GR='#059669',RD='#dc2626',OR='#d97706',PU='#7c3aed',GY='#94a3b8',AM='#f59e0b',SK='#0ea5e9';
