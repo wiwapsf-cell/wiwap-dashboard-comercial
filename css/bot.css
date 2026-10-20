@@ -6,3 +6,6 @@
 
 .logo-frame{background:transparent!important}.brand{gap:18px}.brand small{margin-left:0}.header-right{margin-left:auto}
 :root:not([data-theme=light]) .logo-frame img{filter:brightness(0) invert(1)}
+.active-separator{margin-top:36px;padding-top:26px;border-top:3px solid var(--teal)}.help-tip{cursor:help;color:var(--teal);padding:5px}.message-preview{margin:12px 0;max-width:430px}.message-preview summary{color:var(--teal);font-weight:600;cursor:pointer}.whatsapp-message{white-space:pre-wrap;background:var(--border2);border-radius:12px;padding:20px;line-height:1.65;margin:12px 0;font-size:13px}.bottleneck-box{margin-top:30px;border-top:1px solid var(--border);padding-top:18px}.drop-row{display:grid;grid-template-columns:1fr auto;gap:7px;padding:13px 0;border-bottom:1px solid var(--border)}.drop-row small{grid-column:1/-1;color:var(--muted)}#bot-daily{max-height:none;overflow:visible}#bot-recovery{overflow-x:auto}
+
+.dt tbody tr:hover,.featured tbody tr:hover{background:var(--border2)!important;color:var(--tx)!important}
