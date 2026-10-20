@@ -72,7 +72,7 @@ function sdrLabelDia(iso) {
   const d = new Date(iso + 'T12:00:00');
   const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const ref = sdrDiaRef();
-  return iso === ref ? (ref === new Date().toISOString().slice(0,10) ? 'Hoje' : iso.slice(5)) : nomes[d.getDay()];
+  return iso === ref ? (ref === new Date().toISOString().slice(0,10) ? 'Dia' : iso.slice(5)) : nomes[d.getDay()];
 }
 
 // Gera dias do período filtrado em granularidade adequada
@@ -282,7 +282,7 @@ function renderSDRKpis() {
       <div class="sdr-ks">hoje · média 7d: ${med7leads}</div>
     </div>
     <div class="sdr-kc tl">
-      <div class="sdr-kl">Agendados Hoje
+      <div class="sdr-kl">Agendados
         <span class="sdr-info" data-tip="Reuniões CRIADAS hoje (dt_reuniao_agendada = hoje). A reunião pode acontecer em qualquer data futura.">i</span>
         ${badge(diffAgend)}
       </div>
@@ -290,7 +290,7 @@ function renderSDRKpis() {
       <div class="sdr-ks">criados hoje · média 7d: ${med7agend}</div>
     </div>
     <div class="sdr-kc nv">
-      <div class="sdr-kl">Reuniões p/ Hoje
+      <div class="sdr-kl">Reuniões
         <span class="sdr-info" data-tip="Reuniões cuja Data da Apresentação = hoje. Podem ter sido agendadas em qualquer dia anterior.">i</span>
         ${badge(diffMarc)}
       </div>
@@ -298,7 +298,7 @@ function renderSDRKpis() {
       <div class="sdr-ks">na agenda de hoje · média 7d: ${med7marc}</div>
     </div>
     <div class="sdr-kc ${showColor || 'or'}">
-      <div class="sdr-kl">Presença Hoje
+      <div class="sdr-kl">Presença
         <span class="sdr-info" data-tip="Reuniões de hoje com [Show-up] Data entrada preenchida, dividido pelas reuniões marcadas para hoje.">i</span>
         ${badgePp(diffShow)}
       </div>
@@ -791,8 +791,8 @@ function renderSDRBacklog() {
 
   const items = [
     {
-      title: 'No-shows de hoje sem remarcação',
-      sub: `Reuniões de hoje que não realizaram · horários já encerrados`,
+      title: 'No-shows do dia sem remarcação',
+      sub: `Reuniões do dia que não realizaram · horários já encerrados`,
       val: noShowsHoje.length,
       cls: noShowsHoje.length > 5 ? 'bad' : noShowsHoje.length > 0 ? 'warn' : ''
     },
@@ -809,7 +809,7 @@ function renderSDRBacklog() {
       cls: semContato.length > 20 ? 'bad' : semContato.length > 5 ? 'warn' : ''
     },
     {
-      title: 'Reuniões de hoje ainda aguardando',
+      title: 'Reuniões do dia ainda aguardando',
       sub: `Horários ainda não encerrados e sem presença registrada`,
       val: aguardando.length,
       cls: ''

@@ -155,13 +155,16 @@ function renderKPIs(){
 // FUNIL
 // ══════════════════════════════════════════════════════════════
 function renderFunil(){
- const base=flowRecords.filter(byHunter).filter(r=>inPeriod(r.criado_em));
+ const universe=flowRecords.filter(byHunter);
+ const base=universe.filter(r=>inPeriod(r.criado_em));
  const reached=base.filter(r=>r.dt_apresentacao||r.dt_reuniao_agendada);
  const real=base.filter(r=>nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
  const paid=base.filter(r=>r.dt_pagamento||r.etapa==='Pagamento Recebido');
  const stages=[['Leads recebidos',base.length,'Criados no período'],['Agendamento registrado',reached.length,'Data de reunião ou agendamento'],['Presença registrada',real.length,'Entrada na etapa Show-up'],['Pagamento registrado',paid.length,'Data ou etapa de pagamento']];
- document.getElementById('commercial-kpis').innerHTML=stages.map(([name,v,desc])=>`<div class="kc"><div class="kl">${name}</div><div class="kv">${fmt(v)}</div><div class="ks">${desc}</div></div>`).join('');
+ const activity=[['Leads criados',base.length,'Criação no período'],['Agendados',universe.filter(r=>inPeriod(r.dt_reuniao_agendada)).length,'Agendamento registrado no período'],['Presenças',universe.filter(r=>inPeriod(r.dt_apresentacao)&&sdrShowup(r)).length,'Reuniões do período com presença registrada'],['Pagamentos',universe.filter(r=>inPeriod(r.dt_pagamento)).length,'Pagamento no período']];
+ document.getElementById('commercial-kpis').innerHTML=activity.map(([name,v,desc])=>`<div class="kc"><div class="kl">${name}</div><div class="kv">${fmt(v)}</div><div class="ks">${desc}</div></div>`).join('');
  document.getElementById('commercial-funnel').innerHTML=stages.map(([name,v],i)=>`<div class="funnel-row"><span class="funnel-number">0${i+1}</span><div class="funnel-label">${name}<small>${base.length?(v/base.length*100).toFixed(1):'0'}% da seleção</small></div><div class="funnel-track"><div class="funnel-fill" style="width:${base.length?Math.min(100,v/base.length*100):0}%"></div></div><strong>${fmt(v)}</strong></div>`).join('');
+ renderCommercialReturns(universe);
  const groups={};for(const r of base)groups[r.etapa||'Sem etapa']=(groups[r.etapa||'Sem etapa']||0)+1;
  document.getElementById('com-tags').innerHTML=Object.entries(groups).map(([k,v])=>'<span class="bot-tag">'+botEscape(k)+' <b>'+v+'</b></span>').join('');
 }
