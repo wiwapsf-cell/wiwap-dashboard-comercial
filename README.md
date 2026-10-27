@@ -21,3 +21,6 @@ Removidos os três blocos antigos de Marketing: Impacto da API Oficial (Meta), T
 
 ## Validação
 Verificadas regras de atribuição/deduplicação, cobertura parcial, exclusão de fins de semana e sintaxe dos scripts. Testado no Chrome com bases locais de referência: filtros, card versus gráfico, navegação entre guias e largura móvel. Nenhuma alteração foi publicada automaticamente no GitHub, na Vercel ou no n8n. Os testes não constituem reconciliação ao vivo de todos os IDs do CRM.
+
+## Correção de presença — 27/10
+Taxa = presentes ÷ todas as reuniões previstas no recorte, tanto nos horários quanto no total, no card e no gráfico. A taxa é parcial durante o dia. Quem ainda aguarda o fim do horário continua pendente, sem ser classificado antecipadamente como ausência. Reprodução do print: 2/8 = 25%; total 2/26 = 7,7%.

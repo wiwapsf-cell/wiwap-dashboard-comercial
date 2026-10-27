@@ -146,7 +146,7 @@ function sdrMetricasPorDia(dias) {
       presentes: presentes.length,
       noshow: marcadas.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length,
       pending: marcadas.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length,
-      pct: marcadas.some(r=>sdrShowup(r)||agendaEnded(r)) ? +(presentes.length / marcadas.filter(r=>sdrShowup(r)||agendaEnded(r)).length * 100).toFixed(1) : null,
+      pct: marcadas.length ? +(presentes.length / marcadas.length * 100).toFixed(1) : null,
       agendGerados: agendGer.length,
       leadsCriados: leads.length,
     };
@@ -166,7 +166,7 @@ function sdrMetricasAgrupadas(grupos, chaves) {
       presentes: presentes.length,
       noshow: marcadas.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length,
       pending: marcadas.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length,
-      pct: marcadas.some(r=>sdrShowup(r)||agendaEnded(r)) ? +(presentes.length / marcadas.filter(r=>sdrShowup(r)||agendaEnded(r)).length * 100).toFixed(1) : null,
+      pct: marcadas.length ? +(presentes.length / marcadas.length * 100).toFixed(1) : null,
       agendGerados: agendGer.length,
       leadsCriados: leads.length,
     };
@@ -1015,10 +1015,10 @@ function sdrShowup(r){
 }
 function renderSDRKpis(){
  const leads=sdrLeadsCriados(),agend=sdrAgendadosHoje(),marked=sdrReunioesMarcadas();
- const present=marked.filter(sdrShowup),ended=marked.filter(r=>sdrShowup(r)||agendaEnded(r));
+ const present=marked.filter(sdrShowup);
  const pending=marked.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length;
  const unrecorded=marked.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length;
- const rate=ended.length?(100*present.length/ended.length).toFixed(1)+'%':'—';
+ const rate=marked.length?(100*present.length/marked.length).toFixed(1)+'%':'—';
  const days=sdrUltimos7d(),end=computeRange().end;
  const cohort=agendaRecords().filter(r=>{const c=criadoBRT(r);return c&&c>=days[0]&&c<=end});
  const booked=cohort.filter(r=>r.dt_reuniao_agendada&&r.dt_reuniao_agendada<=end);
@@ -1027,7 +1027,7 @@ function renderSDRKpis(){
  ['Leads criados',leads.length,'Data de criação no período','nv'],
  ['Agendamentos gerados',agend.length,'Data do registro do agendamento','tl'],
  ['Reuniões previstas',marked.length,'Data da reunião no período · inclui remarcações','nv'],
- ['Presença',present.length+' / '+marked.length,`${rate} nos horários apuráveis · ${pending} aguardando horário · ${unrecorded} sem presença registrada`,'tl'],
+ ['Presença',present.length+' / '+marked.length,`${rate} das reuniões previstas · ${pending} aguardando horário · ${unrecorded} sem presença registrada`,'tl'],
  ['Taxa de agendamento',bookingRate,`${booked.length} de ${cohort.length} leads criados nos últimos 7 dias úteis do filtro`,'tl']
  ];
  document.getElementById('sdr-kpis').innerHTML=cards.map(([label,value,description,color])=>`<div class="sdr-kc ${color}"><div class="sdr-kl">${label}</div><div class="sdr-kv ${color}">${value}</div><div class="sdr-ks">${description}</div></div>`).join('');
@@ -1036,13 +1036,13 @@ function renderSDRHorario(){
  const el=document.getElementById('sdr-horario-grid');if(!el)return;
  const ref=sdrDiaRef(),clock=agendaClock(),marked=agendaRecords().filter(r=>r.dt_apresentacao===ref);
  function column(slot,rows){
-  const present=rows.filter(sdrShowup).length,closed=rows.filter(r=>sdrShowup(r)||agendaEnded(r)).length;
+  const present=rows.filter(sdrShowup).length;
   const pending=rows.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length;
   const unrecorded=rows.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length;
-  const rate=closed?100*present/closed:null;
+  const rate=rows.length?100*present/rows.length:null;
   const start={'Às 11h':660,'Às 15h':900,'Às 16h':960,'Outro':0};
   const status=!rows.length?'Sem agenda':ref>clock.date||(ref===clock.date&&clock.minute<(start[slot]||0))?'Aguardando horário':pending?'Em andamento':'Encerrado';
-  return `<div class="sdr-hcol"><div class="sdr-hcol-top"><div class="sdr-slot-lbl">${slot}</div><span class="sdr-status-tag ${pending?'sdr-st-pending':'sdr-st-done'}">${status}</span></div><div class="sdr-big-row"><span class="sdr-agend">${rows.length}</span><span class="sdr-agend-lbl">agendadas</span></div><div class="sdr-pres-row"><span class="sdr-pres">${present}</span><span class="sdr-pres-lbl">presentes</span></div><div class="sdr-pct-row"><span class="sdr-pct-val">${rate===null?'—':rate.toFixed(1)+'%'}</span><span class="sdr-pct-lbl">presença apurável</span></div><div class="sdr-hbar"><div class="sdr-hbar-fill" style="width:${rate||0}%;background:var(--teal)"></div></div><div class="sdr-media-row"><span>${pending} aguardando horário<br>${unrecorded} sem presença registrada</span></div></div>`;
+  return `<div class="sdr-hcol"><div class="sdr-hcol-top"><div class="sdr-slot-lbl">${slot}</div><span class="sdr-status-tag ${pending?'sdr-st-pending':'sdr-st-done'}">${status}</span></div><div class="sdr-big-row"><span class="sdr-agend">${rows.length}</span><span class="sdr-agend-lbl">agendadas</span></div><div class="sdr-pres-row"><span class="sdr-pres">${present}</span><span class="sdr-pres-lbl">presentes</span></div><div class="sdr-pct-row"><span class="sdr-pct-val">${rate===null?'—':rate.toFixed(1)+'%'}</span><span class="sdr-pct-lbl">presentes / agendadas</span></div><div class="sdr-hbar"><div class="sdr-hbar-fill" style="width:${rate||0}%;background:var(--teal)"></div></div><div class="sdr-media-row"><span>${pending} aguardando horário<br>${unrecorded} sem presença registrada</span></div></div>`;
  }
  el.innerHTML=SDR_SLOTS.map(slot=>column(slot,marked.filter(r=>normalizeHorarioSDR(r.horario_agenda)===slot))).join('')+column('Total',marked);
  const title=el.parentElement.querySelector('.ps');if(title)title.textContent='Dia de referência: '+ref.split('-').reverse().join('/')+'. Ausência de presença antes do encerramento do horário não é no-show.';
