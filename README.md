@@ -24,3 +24,14 @@ Verificadas regras de atribuição/deduplicação, cobertura parcial, exclusão 
 
 ## Correção de presença — 27/10
 Taxa = presentes ÷ todas as reuniões previstas no recorte, tanto nos horários quanto no total, no card e no gráfico. A taxa é parcial durante o dia. Quem ainda aguarda o fim do horário continua pendente, sem ser classificado antecipadamente como ausência. Reprodução do print: 2/8 = 25%; total 2/26 = 7,7%.
+
+## Nova guia Comercial — oportunidades por executivo
+Apenas a guia Comercial mudou nesta entrega. Os scripts anteriores e as outras guias foram preservados. A nova visão substitui o funil geral e as tabelas de templates por um resumo de quatro indicadores e cartões por executivo. Cada cartão tem detalhes expansíveis dos modelos e uma lista de até 50 IDs para conferência; os totais não são limitados a 50.
+
+A base de comparação são os leads com envio comercial aceito no período selecionado. Respostas são pessoas únicas após esse envio e antes da próxima mensagem ativa, até o fim do filtro. São evidências da jornada exportada, não uma consulta direta às conversas do WipMessage. Atribuição pelo responsável atual no CRM, conforme alinhado. Reuniões usam primeira data de criação da agenda posterior ao envio, até o fim do filtro. Presenças usam a data da reunião nessa janela, com entrada Show-up na mesma data. Os indicadores podem se sobrepor e não são um funil sequencial.
+
+“Em contato solicitado” significa etapa atual desses leads. A base não fornece a data da passagem por essa etapa; não foi inventada uma contagem histórica. Para contar todas as entradas e atribuir ao executivo da época, o fluxo precisa exportar esses eventos e seus responsáveis.
+
+A tentativa (1ª/2ª) vem do evento; o nome do modelo não determina a tentativa. O texto mostrado vem do catálogo disponível e pode conter variáveis. Não confundir envio aceito pela Meta com entrega/leitura. Sem histórico completo, resultados observados podem estar subestimados.
+
+Validação adicional: coorte de envios no período, deduplicação de respostas, interrupção de atribuição pela próxima mensagem ativa, tentativa versus nome do modelo, filtro por executivo, detalhes expansíveis e apresentação móvel. Publicação continua manual pelo GitHub; nenhum fluxo n8n foi alterado.
