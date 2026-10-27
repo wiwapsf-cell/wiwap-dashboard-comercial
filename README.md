@@ -22,3 +22,8 @@ Demais guias e cálculos, correção de presença (presentes / todas as reuniõe
 
 ## Validação
 Testados deduplicação de respostas, resposta a template antigo, agenda sem template, card versus funil do Bot, card versus gráfico diário, equivalência de agendas/presenças entre Comercial e Agendas, filtro por executivo, navegação e largura móvel. Testes em Chrome com bases locais de referência; não representam auditoria ao vivo de todos os IDs do CRM. Nada foi publicado automaticamente.
+
+## Visão gerencial — atualização final
+Comercial passa a exibir Reuniões previstas pela data da reunião, incluindo agendas criadas antes do período, e mantém separadamente Agendamentos gerados pela primeira data de criação da agenda. São métricas distintas: nos prints enviados, 26 previstas para hoje e 13 criadas hoje. Presenças seguem a data da reunião. Os três indicadores devem coincidir com os respectivos cards da guia Agendas para a mesma base e os mesmos filtros.
+
+Os cartões individuais exibem apenas os cinco executivos ativos da lista existente, retirando Elizabete Soares e o agrupamento Sem responsável. Nenhum dado foi excluído da base e nenhuma outra guia foi alterada. O resumo geral continua incluindo toda a base do filtro; por isso pode exceder a soma dos cinco cartões. Essa abrangência aparece na página. Os seis indicadores de cada executivo têm a mesma hierarquia visual, sem bloco especial para respostas. Detalhes de mensagens e IDs continuam disponíveis.
