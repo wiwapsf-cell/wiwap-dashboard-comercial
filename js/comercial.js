@@ -57,8 +57,7 @@ function tab(id,el){
   document.getElementById('pane-'+id).classList.add('on');
   activeTab=id;
   updatePageIntro(id);
-  if(id==='mkt'){renderMkt();}
-  if(id==='sdr'){renderSDR();}if(id==='bot'){renderBot();}
+  renderAll();
   setTimeout(resizeVisible,60);
 }
 
@@ -94,12 +93,22 @@ const ligCutoff=r=>r.criado_em>=LIGACAO_CUTOFF;
 // ══════════════════════════════════════════════════════════════
 // RENDER PRINCIPAL
 // ══════════════════════════════════════════════════════════════
+let lastRenderSources=null;
+const renderedViews=new Map();
 function renderAll(){
-  renderFunil();
-  renderBot();
-  renderAcomp();
-  if(activeTab==='mkt'){mktInited=false;renderMkt();}
-  if(activeTab==='sdr'){renderSDR();}
+  const sources=[allRecords,novoMap,fatRecords,metaRecords];
+  if(!lastRenderSources||sources.some((x,i)=>x!==lastRenderSources[i])){renderedViews.clear();lastRenderSources=sources;}
+  const range=computeRange();
+  // O minuto invalida status de horários sem recalcular guias escondidas.
+  const key=[range.start,range.end,selectedHunter,Math.floor(Date.now()/60000)].join('|');
+  if(renderedViews.get(activeTab)!==key){
+    if(activeTab==='com')renderFunil();
+    else if(activeTab==='bot')renderBot();
+    else if(activeTab==='acomp')renderAcomp();
+    else if(activeTab==='mkt'){mktInited=false;renderMkt();}
+    else if(activeTab==='sdr')renderSDR();
+    renderedViews.set(activeTab,key);
+  }
   setTimeout(resizeVisible,80);
 }
 

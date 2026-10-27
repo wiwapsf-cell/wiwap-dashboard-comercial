@@ -21,3 +21,14 @@ function renderBot(){if(!document.getElementById('bot-kpis'))return;const availa
  document.getElementById('bot-recovery').innerHTML='<table class="dt"><thead><tr><th>Tentativa</th><th>Leads alcançados</th><th>Responderam depois</th><th>Taxa de resposta</th><th>Agendaram depois</th></tr></thead><tbody>'+types.map(([label,re])=>{const m=recovery(all,re);return `<tr><td>${label}</td><td>${m.sent}</td><td>${m.answered}</td><td>${m.sent?(100*m.answered/m.sent).toFixed(1)+'%':'—'}</td><td>${m.scheduled}</td></tr>`;}).join('')+'</tbody></table>'+templatePanel(all,/segundo template de cadastro|segunda tentativa apos 4h|mensagem ativa aceita pela meta/);
 }
 function renderCommercialReturns(base){const el=document.getElementById('commercial-returns');if(!el)return;if(!Object.values(novoMap).some(n=>Object.prototype.hasOwnProperty.call(n,'[BOT] Jornada do Bot'))){el.innerHTML='<p class="bot-note">Retornos da Retomada Ativa indisponíveis: faltam as colunas da jornada na planilha.</p>';return;}const m=recovery(base.map(journey),/comercial|retomada ativa/);el.innerHTML='<h3>Retomada Ativa · retorno das mensagens</h3>'+metricCards([['Receberam retomada',m.sent,'Envios registrados no período'],['Responderam depois',m.answered,'Antes da próxima tentativa'],['Taxa de retorno',m.sent?(100*m.answered/m.sent).toFixed(1)+'%':'—','Leads com resposta / alcançados']])+'<p class="ps">Distribuição por responsável atual do card. Os dados não identificam com segurança o hunter que recebeu a transferência na época.</p>'+Object.entries(m.hunters).map(([h,n])=>`<span class="bot-tag">${botEscape(h)} <b>${n}</b></span>`).join('');}
+
+(function cacheBotJourneys(){
+ const original=journey,cache=new WeakMap();
+ journey=function(r){
+  if(!r||typeof r!=='object')return original(r);
+  const row=novo(r.id_bitrix)||{},raw=row['[BOT] Jornada do Bot']||'';
+  const previous=cache.get(r);
+  if(previous&&previous.row===row&&previous.raw===raw)return previous.result;
+  const result=original(r);cache.set(r,{row,raw,result});return result;
+ };
+})();

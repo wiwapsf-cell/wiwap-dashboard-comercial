@@ -11,6 +11,9 @@ const NV='#003462',TL='#00a0a3',TL2='#5fc7c9',GR='#059669',RD='#dc2626',OR='#d97
 const TP={backgroundColor:'#fff',borderColor:'#e2e8f0',textStyle:{fontFamily:'Plus Jakarta Sans',fontSize:11}};
 const AX={fontFamily:'Plus Jakarta Sans',fontSize:10,color:'#64748b'};
 const F='Plus Jakarta Sans';
+const brasilDateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'});
+const brasilHourFormat=new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'});
+
 
 const TICKET_MEDIO = 860;
 const META_MENSAL = 200000;
@@ -152,7 +155,7 @@ function getTicketMedioReal(){
 // ===== PERÍODO =====
 let periodState={type:'preset',preset:'30d',start:null,end:null};
 function computeRange(){
-  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); const endD=new Date(end+'T12:00:00'); let startD=new Date(endD);
+  const end=brasilDateFormat.format(new Date()); const endD=new Date(end+'T12:00:00'); let startD=new Date(endD);
   if(periodState.type==='custom'&&periodState.start&&periodState.end)return{start:periodState.start,end:periodState.end};
   switch(periodState.preset){
     case'hoje':return{start:end,end};
@@ -174,7 +177,7 @@ function inPeriod(dateStr){ if(!dateStr)return false; const{start,end}=computeRa
 // garantindo que TODOS os gráficos usem o mesmo dia/hora reais.
 function criadoBRT(r){
   if(!r || !r.criado_em) return null;
-  if(r.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.criado_iso));
+  if(r.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return brasilDateFormat.format(new Date(r.criado_iso));
   const hUTCraw = r.criado_hora ? parseInt(String(r.criado_hora).split(':')[0], 10) : 12;
   const hUTC = isNaN(hUTCraw) ? 12 : hUTCraw;
   const utc = new Date(r.criado_em + 'T' + String(hUTC).padStart(2,'0') + ':00:00Z');
@@ -182,7 +185,7 @@ function criadoBRT(r){
   return brt.toISOString().slice(0, 10);
 }
 function horaBRT(r){
-  if(r?.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return Number(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'}).format(new Date(r.criado_iso)));
+  if(r?.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return Number(brasilHourFormat.format(new Date(r.criado_iso)));
   if(!r || !r.criado_hora) return null;
   const hUTC = parseInt(String(r.criado_hora).split(':')[0], 10);
   if(isNaN(hUTC)) return null;
@@ -225,3 +228,24 @@ function simplifyFonteDetalhado(r){
 // ===== ECHARTS helper (dispose+init) =====
 function ec(id){const e=document.getElementById(id);if(!e)return null;const ex=echarts.getInstanceByDom(e);if(ex)ex.dispose();return echarts.init(e);}
 function resizeVisible(){document.querySelectorAll('.pane.on [id^="ch-"], .pane.on [id^="sdr-ch-"]').forEach(e=>{const i=echarts.getInstanceByDom(e);if(i)i.resize();});}
+
+// Os registros são reconstruídos a cada leitura das planilhas; WeakMap libera caches antigos.
+(function cacheStableDates(){
+ const originalRange=computeRange,originalCreated=criadoBRT,originalHour=horaBRT,originalHunter=canonHunter;
+ const created=new WeakMap(),hours=new WeakMap(),names=new Map();
+ let key='',value=null,clockDay='',nextClock=0;
+ computeRange=function(){
+  const now=Date.now();if(now>=nextClock){clockDay=brasilDateFormat.format(new Date(now));nextClock=(Math.floor(now/60000)+1)*60000;}
+  const next=[periodState.type,periodState.preset,periodState.start,periodState.end,clockDay].join('|');
+  if(next!==key){key=next;value=originalRange();}return value;
+ };
+ function cachedRecord(fn,map,r){
+  if(!r||typeof r!=='object')return fn(r);
+  const prior=map.get(r);
+  if(prior&&prior.iso===r.criado_iso&&prior.day===r.criado_em&&prior.hour===r.criado_hora)return prior.value;
+  const value=fn(r);map.set(r,{iso:r.criado_iso,day:r.criado_em,hour:r.criado_hora,value});return value;
+ }
+ criadoBRT=r=>cachedRecord(originalCreated,created,r);
+ horaBRT=r=>cachedRecord(originalHour,hours,r);
+ canonHunter=function(name){if(names.has(name))return names.get(name);const result=originalHunter(name);names.set(name,result);return result;};
+})();

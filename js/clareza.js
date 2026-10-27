@@ -43,3 +43,8 @@ const renderBotBeforeClarity=renderBot;renderBot=function(){renderBotBeforeClari
     }
   };
 })();
+
+(function cacheBotPhases(){
+ const original=phaseRows,cache=new WeakMap();
+ phaseRows=function(rows){return rows.map(row=>{const prior=cache.get(row);if(prior&&prior.events===row.events)return prior.value;const value=original([row])[0];cache.set(row,{events:row.events,value});return value;});};
+})();
