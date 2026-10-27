@@ -1,37 +1,24 @@
-# Dashboard Wiwap — ajustes de 27/10/2026
+# Dashboard Wiwap — revisão de 27/10/2026
 
 ## Publicação
-Descompacte o ZIP e envie o conteúdo desta pasta para a raiz do repositório existente no GitHub. Substitua os arquivos de mesmo nome. Não envie o ZIP fechado nem crie outra pasta envolvendo o projeto. A Vercel deve publicar o commit conforme a integração existente.
+Este ZIP contém o projeto completo. Descompacte e envie o conteúdo para a raiz do repositório existente, substituindo arquivos de mesmo nome. Não envie o ZIP fechado nem uma pasta adicional envolvendo o projeto. Publicação pela integração GitHub/Vercel existente. Nenhuma alteração de n8n é necessária para esta entrega.
 
-Esta entrega contém o dashboard completo. Não é necessário trocar os fluxos n8n para aplicar estes ajustes de visualização.
+## Bot: card e funil
+O card usa leads únicos com primeira data de criação de agenda no CRM dentro do filtro, escolha de horário seguida de confirmação na jornada na mesma data da criação, sem encaminhamento humano ou remarcação entre essas ações. Inclui leads criados antes do filtro. Confirmações isoladas, simples espelhamento do CRM e remarcações não são novas agendas atribuídas ao Bot.
+A última etapa do funil agora aplica exatamente essa validação, restringe aos leads criados no período e exige as etapas anteriores do funil. Portanto, seus IDs sempre são subconjunto do card: a última etapa nunca supera o card. Card e barras diárias continuam usando a mesma lista de IDs.
+Atribuição conservadora com base no histórico textual; histórico incompleto pode subestimar resultados. Para autoria definitiva seria necessário registrar explicitamente Bot/Humano no momento da criação.
 
-## Regras dos indicadores
-- Agendas / Agendamentos gerados: leads únicos pela data de criação do agendamento no CRM, independentemente da data de criação do lead.
-- Bot / Agendamentos gerados pelo Bot: subconjunto acima com evento de escolha de horário seguido de confirmação na jornada, na mesma data da criação da agenda no CRM. Não atribui agendas por simples mudança de etapa. Não conta espelhamento isolado do CRM, confirmação isolada, escolha sem confirmação ou remarcação como nova agenda. Um encaminhamento humano ou pedido de remarcação entre a escolha e a confirmação invalida essa sequência.
-- O card e o gráfico diário do Bot usam a mesma lista de IDs. Somar as barras do período deve produzir o total do card, com o mesmo filtro de hunter.
-- O funil do Bot e os cards de mensagens/escolha/humano continuam acompanhando apenas leads criados no período, com rótulos explícitos. Podem ter valores diferentes do card de agendas, que inclui leads antigos.
-- Retomadas do Bot: a coluna de agendas posteriores exige a mesma evidência de escolha + confirmação, após a tentativa e antes da próxima. Associação temporal não prova causalidade.
-- Atribuição conservadora: o histórico textual não fornece um campo imutável de autoria. Históricos ausentes ou incompletos podem subestimar agendas do Bot; esta entrega não recupera dados históricos inexistentes. Para auditoria definitiva, registrar a origem Bot/Humano e o momento da criação no fluxo que efetivamente grava a reunião no CRM.
-- Cobertura parcial: exibe os registros observados e informa quantos leads têm histórico disponível; não oculta toda a seleção por faltar uma parte dos dados. Ausência de histórico não comprova ausência de atendimento.
-- Show-up / período selecionado: exclui sábados e domingos, inclusive em agregações por semana e mês. A janela do filtro permanece a mesma; 7 dias corridos podem mostrar cinco dias úteis. Os demais totais não excluem agendas de fim de semana.
-- Status de atualização: tolerância de dez minutos para cadência de cinco minutos, execução e atualização do CSV. O aviso continua presente se houver recuperação pendente, ausência de controle ou falha na leitura.
+## Comercial: métricas independentes por data
+- Templates enviados: eventos comerciais de Retomada Ativa aceitos pela Meta no período. Não comprova entrega/leitura. Deduplicação dos registros históricos por fase mantém a regra existente de 60 segundos, pois a exportação não fornece ID de mensagem.
+- Leads alcançados: IDs únicos com envio comercial no período.
+- Leads que responderam: IDs únicos com resposta registrada na jornada dentro do filtro, posterior a uma retomada comercial e anterior à próxima mensagem ativa. Pode ser resposta a template anterior ao período. Não é contagem de todas as mensagens do WipMessage nem comprovação de causa.
+- Reuniões agendadas: todos os leads com primeira data de criação de agenda no CRM no período, de qualquer origem, sem exigir envio ou resposta de template. Mesma regra do card Agendamentos gerados da guia Agendas.
+- Presentes: todos os leads com reunião no período e entrada Show-up na mesma data, de qualquer origem. Mesma regra da guia Agendas.
+- Em contato solicitado: etapa atual de todos os leads do executivo. A base não fornece data histórica de entrada; por isso esse número não é apresentado como passagens no período.
+Atribuição pelo responsável atual do CRM. Indicadores independentes, não são um funil. Não dividir respostas pelos envios do período como se fossem uma coorte única. Modelos detalham envios e respostas por identificação/tentativa, com texto do catálogo. Um lead pode aparecer em mais de um modelo; não somar essas contagens de leads. Lista de conferência limitada a 50 IDs por executivo; totais usam todos.
 
-## Outros ajustes
-Removidos os três blocos antigos de Marketing: Impacto da API Oficial (Meta), Templates — Abandono Pós Cadastro e Templates — CA S2. Preservados os demais indicadores, Acompanhamento, remoções anteriores dos gráficos SDR e otimizações de desempenho.
+## Preservado
+Demais guias e cálculos, correção de presença (presentes / todas as reuniões), exclusão de fins de semana no gráfico de show-up, remoções de Marketing e otimizações de desempenho.
 
 ## Validação
-Verificadas regras de atribuição/deduplicação, cobertura parcial, exclusão de fins de semana e sintaxe dos scripts. Testado no Chrome com bases locais de referência: filtros, card versus gráfico, navegação entre guias e largura móvel. Nenhuma alteração foi publicada automaticamente no GitHub, na Vercel ou no n8n. Os testes não constituem reconciliação ao vivo de todos os IDs do CRM.
-
-## Correção de presença — 27/10
-Taxa = presentes ÷ todas as reuniões previstas no recorte, tanto nos horários quanto no total, no card e no gráfico. A taxa é parcial durante o dia. Quem ainda aguarda o fim do horário continua pendente, sem ser classificado antecipadamente como ausência. Reprodução do print: 2/8 = 25%; total 2/26 = 7,7%.
-
-## Nova guia Comercial — oportunidades por executivo
-Apenas a guia Comercial mudou nesta entrega. Os scripts anteriores e as outras guias foram preservados. A nova visão substitui o funil geral e as tabelas de templates por um resumo de quatro indicadores e cartões por executivo. Cada cartão tem detalhes expansíveis dos modelos e uma lista de até 50 IDs para conferência; os totais não são limitados a 50.
-
-A base de comparação são os leads com envio comercial aceito no período selecionado. Respostas são pessoas únicas após esse envio e antes da próxima mensagem ativa, até o fim do filtro. São evidências da jornada exportada, não uma consulta direta às conversas do WipMessage. Atribuição pelo responsável atual no CRM, conforme alinhado. Reuniões usam primeira data de criação da agenda posterior ao envio, até o fim do filtro. Presenças usam a data da reunião nessa janela, com entrada Show-up na mesma data. Os indicadores podem se sobrepor e não são um funil sequencial.
-
-“Em contato solicitado” significa etapa atual desses leads. A base não fornece a data da passagem por essa etapa; não foi inventada uma contagem histórica. Para contar todas as entradas e atribuir ao executivo da época, o fluxo precisa exportar esses eventos e seus responsáveis.
-
-A tentativa (1ª/2ª) vem do evento; o nome do modelo não determina a tentativa. O texto mostrado vem do catálogo disponível e pode conter variáveis. Não confundir envio aceito pela Meta com entrega/leitura. Sem histórico completo, resultados observados podem estar subestimados.
-
-Validação adicional: coorte de envios no período, deduplicação de respostas, interrupção de atribuição pela próxima mensagem ativa, tentativa versus nome do modelo, filtro por executivo, detalhes expansíveis e apresentação móvel. Publicação continua manual pelo GitHub; nenhum fluxo n8n foi alterado.
+Testados deduplicação de respostas, resposta a template antigo, agenda sem template, card versus funil do Bot, card versus gráfico diário, equivalência de agendas/presenças entre Comercial e Agendas, filtro por executivo, navegação e largura móvel. Testes em Chrome com bases locais de referência; não representam auditoria ao vivo de todos os IDs do CRM. Nada foi publicado automaticamente.

@@ -21,6 +21,10 @@ function botBookingsInPeriod(rows){
  return [...unique.values()];
 }
 
+function botFunnelBookings(rows){
+ const ids=new Set(botBookingsInPeriod(rows).map(x=>x.id));
+ return rows.filter(x=>inPeriod(criadoBRT(x.r))&&ids.has(String(x.r.id_bitrix)));
+}
 function botEscape(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function botNorm(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function journey(r){const n=novo(r.id_bitrix)||{};const events=String(n['[BOT] Jornada do Bot']||'').split('\n').map((line,i)=>{const m=line.match(/(\d{2})\/(\d{2})\/(\d{4}),?\s+(\d{2}):(\d{2})(?::(\d{2}))?\s*\|\s*(.*)/);return m?{date:`${m[3]}-${m[2]}-${m[1]}`,time:Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]||'00'}-03:00`),text:botNorm(m[7]),i}:null;}).filter(Boolean).sort((a,b)=>a.time-b.time||a.i-b.i);return {r,n,events};}
@@ -44,7 +48,7 @@ function renderBot(){if(!document.getElementById('bot-kpis'))return;const availa
   ['Encaminhamento humano',hand,cohortDesc(hand,'Entre os leads criados no período')]
  ]);
 
- const engaged=rows.filter(x=>x.events.some(e=>reply(e)||/mensagem ativa aceita pela meta/.test(e.text))),qualified=engaged.filter(x=>x.events.some(e=>/qualificacao concluida/.test(e.text))),offered=qualified.filter(x=>x.events.some(e=>/horarios apresentados/.test(e.text))),chosen=offered.filter(x=>x.events.some(botChosen)),done=chosen.filter(x=>x.events.some(confirmed));const steps=[['Enviaram ou receberam mensagem',engaged],['Concluíram qualificação',qualified],['Receberam horários',offered],['Escolheram horário',chosen],['Confirmaram reunião',done]];
+ const engaged=rows.filter(x=>x.events.some(e=>reply(e)||/mensagem ativa aceita pela meta/.test(e.text))),qualified=engaged.filter(x=>x.events.some(e=>/qualificacao concluida/.test(e.text))),offered=qualified.filter(x=>x.events.some(e=>/horarios apresentados/.test(e.text))),chosen=offered.filter(x=>x.events.some(botChosen)),done=botFunnelBookings(chosen);const steps=[['Enviaram ou receberam mensagem',engaged],['Concluíram qualificação',qualified],['Receberam horários',offered],['Escolheram horário',chosen],['Confirmaram reunião',done]];
  document.getElementById('bot-funnel').innerHTML=steps.map(([label,list],i)=>`<div class="bot-funnel-step"><span class="bot-step-index">0${i+1}</span><span class="bot-step-body">${label}<span class="bot-bar"><i style="width:${engaged.length?100*list.length/engaged.length:0}%"></i></span><small>${i?`${steps[i-1][1].length-list.length} sem próximo avanço registrado`:'Base com mensagem recebida'}</small></span><b>${list.length}</b></div>`).join('')+'<p class="ps">Funil sequencial: cada etapa exige registro das anteriores. Os cards acima contam cada evento independentemente.</p>';
  const gaps=steps.slice(1).map((x,i)=>({label:steps[i][0]+' → '+x[0],n:steps[i][1].length-x[1].length})).sort((a,b)=>b.n-a.n);const coverage=rows.filter(x=>x.events.length).length;
  document.getElementById('bot-insight').innerHTML=`<b>${gaps[0]?.n?`Maior perda de avanço: ${gaps[0].label} · ${gaps[0].n} leads`:'Sem perda de avanço identificada nesta seleção'}</b><br>Os cards de mensagem se sobrepõem: quem recebeu abertura ativa e depois respondeu aparece nos dois. Não some esses volumes. ${rows.length-coverage} leads sem histórico datado. Os grupos podem conter atendimento humano, encerramentos ou histórico incompleto; não representam abandono confirmado.`;
