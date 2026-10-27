@@ -28,7 +28,7 @@
 </div>
 <div id="sync-status" role="status" aria-live="polite"></div>
 <div class="pane on" id="pane-com"><div class="panel"><div class="pt">Funil comercial</div><div class="ps">Mesmos critérios de Agendas. Cada etapa considera a data do seu evento no período selecionado.</div><div id="commercial-kpis" class="krow4"></div><div id="commercial-funnel"></div><div id="commercial-returns"></div><div id="com-tags" class="bot-tags"></div></div></div>
-<div class="pane" id="pane-bot"><div id="bot-kpis" class="krow"></div><div id="bot-insight" class="bot-note"></div><div class="g2"><div class="panel"><div class="pt">Onde a conversa perde avanço?</div><div class="ps">Leads criados no período. Etapas com evidência no histórico, sem inferir respostas.</div><div id="bot-funnel"></div></div><div class="panel"><div class="pt">Agendamentos por dia</div><div class="ps">Data em que o agendamento foi registrado pelo bot; inclui leads criados antes do período.</div><div id="bot-daily"></div></div></div><div class="panel"><div class="pt">As retomadas estão trazendo respostas?</div><div class="ps">Resposta posterior ao envio e anterior à próxima tentativa. Associação temporal, não comprovação de causa.</div><div id="bot-recovery"></div></div></div><div class="pane" id="pane-acomp">
+<div class="pane" id="pane-bot"><div id="bot-kpis" class="krow"></div><div id="bot-insight" class="bot-note"></div><div class="g2"><div class="panel"><div class="pt">Onde a conversa perde avanço?</div><div class="ps">Leads criados no período. Etapas com evidência no histórico, sem inferir respostas.</div><div id="bot-funnel"></div></div><div class="panel"><div class="pt">Agendamentos gerados pelo Bot · por dia</div><div class="ps">Data de criação da agenda no CRM, com escolha e confirmação na jornada do Bot. Inclui leads antigos; mesma contagem do card.</div><div id="bot-daily"></div></div></div><div class="panel"><div class="pt">As retomadas estão trazendo respostas?</div><div class="ps">Resposta posterior ao envio e anterior à próxima tentativa. Associação temporal, não comprovação de causa.</div><div id="bot-recovery"></div></div></div><div class="pane" id="pane-acomp">
 
 <!-- TEAM OVERVIEW -->
 <div class="krow4" style="margin-bottom:14px">
@@ -92,35 +92,6 @@
   <div class="kc pu"><div class="kl">Msgs API Oficial</div><div class="kv pu" id="mk-msgs">—</div><div class="ks" id="mk-msgs-s">—</div></div>
 </div>
 
-<!-- IMPACTO API OFICIAL -->
-<div class="panel" style="margin-bottom:11px">
-  <div class="pt"><div class="ptb" style="background:var(--navy)"></div>Impacto da API Oficial (Meta)</div>
-  <div class="ps">Abandono (botão "Agendar Reunião") + CA S2 — leads que chegaram à reunião pelo disparo automático</div>
-  <div class="mks" style="margin-bottom:13px">
-    <div class="mk"><div class="mkl">Total agendados via API</div><div class="mkv nv" id="mk-api-total">—</div></div>
-    <div class="mk"><div class="mkl">Via Abandono (botão)</div><div class="mkv tl" id="mk-api-ab">—</div></div>
-    <div class="mk"><div class="mkl">Via CA S2</div><div class="mkv tl" id="mk-api-s2">—</div></div>
-    <div class="mk"><div class="mkl">Converteram</div><div class="mkv gr" id="mk-api-conv">—</div></div>
-    <div class="mk"><div class="mkl">Receita recuperada</div><div class="mkv gr" id="mk-api-rec" style="font-size:13px">—</div></div>
-  </div>
-  <div id="ch-mkt-api-tl" style="height:200px"></div>
-</div>
-
-<!-- TEMPLATES -->
-<div class="sl">Performance de templates — API Oficial</div>
-<div class="g5050">
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Templates — Abandono Pós Cadastro</div>
-    <div class="ps">Campo [Abandono] Template Enviado (UF_CRM_1783974632) · retorno = clicou "Agendar Reunião"</div>
-    <div id="ch-mkt-tmpl-ab" style="height:240px"></div>
-  </div>
-  <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--navy)"></div>Templates — CA S2 (Não respondeu ao contato)</div>
-    <div class="ps">Campo [CA] Template Enviado (UF_CRM_1784135192) · retorno = campo "Respondeu" = Sim (11912)</div>
-    <div id="ch-mkt-tmpl-ca" style="height:240px"></div>
-  </div>
-</div>
-
 <!-- AQUISIÇÃO -->
 <div class="sl">Aquisição e fontes</div>
 <div class="panel" style="margin-bottom:11px">
@@ -171,7 +142,7 @@
   <div class="sdr-g2">
     <div class="panel">
       <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up · período selecionado</div>
-      <div class="ps">% de presença, agendadas e presentes por dia · linha = taxa show-up</div>
+      <div class="ps">Somente segunda a sexta · presença por data da reunião · linha = taxa show-up</div>
       <div id="sdr-ch-showup" style="height:230px"></div>
     </div>
     <div class="panel">

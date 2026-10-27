@@ -15,7 +15,8 @@ function showSyncHealth(){
   const date=Date.parse(state.synced_through);
   if(!Number.isFinite(date)){items.push(label+': sem data de conclusão válida');problems.push(label);continue;}
   items.push(label+': alterações conferidas até '+stamp(date));
-  if(now-date>5*60000)problems.push(label);
+  // Cadência de 5 min + execução + atualização da exportação do Sheets.
+  if(now-date>10*60000)problems.push(label);
  }
  if(dashboardSync.readError)problems.push('falha na leitura das planilhas');
  const bad=problems.length>0;container.dataset.state=bad?'warning':'ok';

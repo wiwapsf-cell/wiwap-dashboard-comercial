@@ -220,54 +220,6 @@ function renderMktFonteTable(){
 }
 function initMktCharts(){
   const base=flowRecords.filter(byHunter);
-  // Impacto API oficial mks
-  const viaAb=base.filter(r=>nstr(novo(r.id_bitrix),'[Abandono] Resposta Botão')==='Agendar Reunião'&&r.dt_apresentacao);
-  const viaS2=base.filter(r=>nstr(novo(r.id_bitrix),'[CA-S2] Respondeu')==='Sim'&&r.dt_apresentacao);
-  const totalApi=viaAb.length+viaS2.length;
-  const converteram=[...viaAb,...viaS2].filter(r=>inPeriod(r.dt_pagamento)&&r.etapa==='Pagamento Recebido');
-  const ticket=getTicketMedioReal();
-  setTxt('mk-api-total',fmt(totalApi));
-  setTxt('mk-api-ab',fmt(viaAb.length));
-  setTxt('mk-api-s2',fmt(viaS2.length));
-  setTxt('mk-api-conv',`${converteram.length} (${totalApi?Math.round(converteram.length/totalApi*100):0}%)`);
-  setTxt('mk-api-rec',fmtR(converteram.length*ticket));
-  // ch-mkt-api-tl (por dia, via Abandono / via CA S2)
-  const dayMap={};
-  for(const r of viaAb){const d=(r.dt_apresentacao||'').slice(0,10);if(d){if(!dayMap[d])dayMap[d]={ab:0,s2:0};dayMap[d].ab++;}}
-  for(const r of viaS2){const d=(r.dt_apresentacao||'').slice(0,10);if(d){if(!dayMap[d])dayMap[d]={ab:0,s2:0};dayMap[d].s2++;}}
-  const dias=Object.keys(dayMap).sort().slice(-14);
-  const c0=ec('ch-mkt-api-tl');
-  if(c0)c0.setOption({
-    tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:10},itemHeight:8},
-    grid:{top:12,right:8,bottom:36,left:36},
-    xAxis:{type:'category',data:dias.map(d=>d.slice(5).split('-').reverse().join('/')),axisLabel:{...AX,fontSize:9}},
-    yAxis:{type:'value',axisLabel:{...AX,fontSize:9},splitLine:{lineStyle:{color:'#f1f5f9'}}},
-    series:[{name:'Via Abandono',type:'bar',stack:'s',data:dias.map(d=>dayMap[d].ab),itemStyle:{color:TL}},{name:'Via CA S2',type:'bar',stack:'s',data:dias.map(d=>dayMap[d].s2),itemStyle:{color:NV,borderRadius:[4,4,0,0]},barMaxWidth:28}]
-  });
-  // Templates Abandono
-  const tmplAb={};
-  for(const r of base){const n=novo(r.id_bitrix);const t=nstr(n,'[Abandono] Template Enviado');if(!t)continue;if(!tmplAb[t])tmplAb[t]={env:0,ret:0};tmplAb[t].env++;if(nstr(n,'[Abandono] Resposta Botão')==='Agendar Reunião')tmplAb[t].ret++;}
-  const abArr=Object.entries(tmplAb).sort((a,b)=>b[1].env-a[1].env).slice(0,6);
-  const c1=ec('ch-mkt-tmpl-ab');
-  if(c1)c1.setOption({
-    tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:9},itemHeight:8},
-    grid:{top:16,right:44,bottom:48,left:8,containLabel:true},
-    xAxis:{type:'category',data:abArr.map(t=>t[0].length>16?t[0].slice(0,14)+'…':t[0]),axisLabel:{...AX,fontSize:9,rotate:10}},
-    yAxis:[{type:'value',name:'Disparos',axisLabel:{...AX,fontSize:9},splitLine:{lineStyle:{color:'#f1f5f9'}}},{type:'value',name:'% Retorno',max:60,axisLabel:{...AX,fontSize:9,formatter:'{value}%'},splitLine:{show:false}}],
-    series:[{name:'Disparos',type:'bar',data:abArr.map(t=>t[1].env),barMaxWidth:52,itemStyle:{color:TL,borderRadius:[4,4,0,0]},label:{show:true,position:'top',fontSize:10,fontFamily:F}},{name:'% Clicou Agendar',type:'line',yAxisIndex:1,data:abArr.map(t=>t[1].env>0?+(t[1].ret/t[1].env*100).toFixed(1):0),lineStyle:{color:GR,width:2},itemStyle:{color:GR},symbol:'circle',symbolSize:7,label:{show:true,position:'top',formatter:'{c}%',fontSize:9,fontFamily:F,color:GR}}]
-  });
-  // Templates CA S2
-  const tmplCa={};
-  for(const r of base){const n=novo(r.id_bitrix);const t=nstr(n,'[CA] Template Enviado');if(!t)continue;if(!tmplCa[t])tmplCa[t]={env:0,ret:0};tmplCa[t].env++;if(nstr(n,'[CA-S2] Respondeu')==='Sim')tmplCa[t].ret++;}
-  const caArr=Object.entries(tmplCa).sort((a,b)=>b[1].env-a[1].env).slice(0,6);
-  const c2=ec('ch-mkt-tmpl-ca');
-  if(c2)c2.setOption({
-    tooltip:{trigger:'axis',...TP},legend:{bottom:0,textStyle:{fontFamily:F,fontSize:9},itemHeight:8},
-    grid:{top:16,right:44,bottom:48,left:8,containLabel:true},
-    xAxis:{type:'category',data:caArr.map(t=>t[0].length>16?t[0].slice(0,14)+'…':t[0]),axisLabel:{...AX,fontSize:9,rotate:10}},
-    yAxis:[{type:'value',name:'Disparos',axisLabel:{...AX,fontSize:9},splitLine:{lineStyle:{color:'#f1f5f9'}}},{type:'value',name:'% Respondeu',max:60,axisLabel:{...AX,fontSize:9,formatter:'{value}%'},splitLine:{show:false}}],
-    series:[{name:'Disparos',type:'bar',data:caArr.map(t=>t[1].env),barMaxWidth:52,itemStyle:{color:NV,borderRadius:[4,4,0,0]},label:{show:true,position:'top',fontSize:10,fontFamily:F}},{name:'% Respondeu',type:'line',yAxisIndex:1,data:caArr.map(t=>t[1].env>0?+(t[1].ret/t[1].env*100).toFixed(1):0),lineStyle:{color:GR,width:2},itemStyle:{color:GR},symbol:'circle',symbolSize:7,label:{show:true,position:'top',formatter:'{c}%',fontSize:9,fontFamily:F,color:GR}}]
-  });
   // Aquisição de leads (por dia criado_em)
   const leadDay={};
   for(const r of base.filter(r=>inPeriod(r.criado_em))){const d=r.criado_em;leadDay[d]=(leadDay[d]||0)+1;}

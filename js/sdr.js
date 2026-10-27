@@ -63,7 +63,7 @@ function sdrLabelDia(iso) {
 }
 
 // Gera dias do período filtrado em granularidade adequada
-function sdrDiasPeriodo() {
+function sdrDiasPeriodo(businessOnly = false) {
   const { start, end } = computeRange();
   const s = new Date(start + 'T12:00:00');
   const e = new Date(end + 'T12:00:00');
@@ -83,7 +83,7 @@ function sdrDiasPeriodo() {
     let d = new Date(s);
     while (d <= e) {
       const dow = d.getDay();
-      dias.push(d.toISOString().slice(0, 10));
+      if (!businessOnly || (dow !== 0 && dow !== 6)) dias.push(d.toISOString().slice(0, 10));
       d.setDate(d.getDate() + 1);
     }
     return { dias, granular: 'dia' };
@@ -97,8 +97,10 @@ function sdrDiasPeriodo() {
       const seg = new Date(d);
       seg.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1));
       const key = seg.toISOString().slice(0, 10);
-      if (!semanas[key]) semanas[key] = [];
-      semanas[key].push(iso);
+      if (!businessOnly || (dow !== 0 && dow !== 6)) {
+        if (!semanas[key]) semanas[key] = [];
+        semanas[key].push(iso);
+      }
       d.setDate(d.getDate() + 1);
     }
     return { dias: Object.keys(semanas).sort(), grupos: semanas, granular: 'semana' };
@@ -108,8 +110,11 @@ function sdrDiasPeriodo() {
     let d = new Date(s);
     while (d <= e) {
       const key = d.toISOString().slice(0, 7); // yyyy-mm
-      if (!meses[key]) meses[key] = [];
-      meses[key].push(d.toISOString().slice(0, 10));
+      const dow = d.getDay();
+      if (!businessOnly || (dow !== 0 && dow !== 6)) {
+        if (!meses[key]) meses[key] = [];
+        meses[key].push(d.toISOString().slice(0, 10));
+      }
       d.setDate(d.getDate() + 1);
     }
     return { dias: Object.keys(meses).sort(), grupos: meses, granular: 'mes' };
@@ -216,7 +221,7 @@ function renderSDRShowupChart() {
   const chart = ec('sdr-ch-showup');
   if (!chart) return;
 
-  const { dias, grupos, granular } = sdrDiasPeriodo();
+  const { dias, grupos, granular } = sdrDiasPeriodo(true);
   const mets = grupos ? sdrMetricasAgrupadas(grupos, dias) : sdrMetricasPorDia(dias);
   const labels = dias.map(d => sdrLabelPeriodo(d, granular));
   const marcA  = mets.map(m => m.marcadas);
