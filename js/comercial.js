@@ -6,8 +6,9 @@ function parseCsvPromise(url){
   });
 }
 function loadData(){
+  if(dataLoadInProgress)return;dataLoadInProgress=true;
   const safe=u=>parseCsvPromise(u).catch(e=>{console.warn('Fonte indisponível');return{data:[],unavailable:true};});
-  Promise.all([parseCsvPromise(CSV_URL),safe(CSV_FAT),safe(CSV_META),safe(CSV_NOVO)])
+  return Promise.all([parseCsvPromise(CSV_URL),safe(CSV_FAT),safe(CSV_META),safe(CSV_NOVO)])
   .then(([bx,ft,mt,nv])=>{
     if(!bx.data||!bx.data.length)throw new Error('Planilha Bitrix vazia');
     resolveColumns(bx.data);
@@ -19,11 +20,12 @@ function loadData(){
     try{fatRecords=(ft.data||[]).map(processFatRow).filter(r=>r.dt_pagamento&&r.valor>0);for(const r of fatRecords)if(r.dt_pagamento>maxDate&&r.dt_pagamento<=hoje)maxDate=r.dt_pagamento;}catch(e){fatRecords=[];}
     try{metaRecords=(mt.data||[]).map(processMetaRow).filter(r=>r.dt_inicio);}catch(e){metaRecords=[];}
     try{ novoMap={}; for(const row of (nv.data||[])){const id=String(row['ID Bitrix']||'').trim();if(id)novoMap[id]=row;} }catch(e){novoMap={};}
+    dashboardSync={base:parseSyncRow(bx.data,'base'),bot:parseSyncRow(nv.data,'bot'),readAt:new Date().toISOString(),readError:false};
     setTxt('upd','Última data nos dados: '+maxDate.split('-').reverse().join('/'));setTxt('data-health',nv.unavailable?'Dados do Bot indisponíveis':'Leitura das planilhas concluída');
     initHeader();
     renderAll();
   })
-  .catch(e=>{console.error(e);setTxt('upd','Erro ao carregar');});
+  .catch(e=>{console.error(e);dashboardSync.readError=true;showSyncHealth();setTxt('upd','Falha ao carregar a base; dados anteriores podem estar desatualizados');}).finally(()=>{dataLoadInProgress=false;});
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -22,6 +22,8 @@ const OUTROS_SEGMENTOS = 'Outros Segmentoss';
 let fatRecords = [];
 let metaRecords = [];
 let novoMap = {};
+let dashboardSync={base:null,bot:null,readAt:null,readError:false};
+let dataLoadInProgress=false;
 let allRecords = [], flowRecords = [], outrosRecords = [];
 let RESOLVED_COLS = {};
 let maxDate = '1970-01-01';
@@ -112,6 +114,8 @@ function resolveColumns(rawRows){
 function processRow(row){
   const obj={};
   for(const[k,col]of Object.entries(RESOLVED_COLS)){const v=col?row[col]:undefined;obj[k]=(v===undefined||v===null||String(v).trim()==='')?null:String(v).trim();}
+  const createdRaw=RESOLVED_COLS.criado_em?String(row[RESOLVED_COLS.criado_em]||''):'';
+  if(/^\d{4}-\d{2}-\d{2}T/.test(createdRaw))obj.criado_iso=createdRaw;
   DATE_FIELDS.forEach(f=>{obj[f]=brToISO(obj[f]);});
   obj.estado_uf=normEstado(obj.estado_raw); delete obj.estado_raw;
   obj.hunter=canonHunter(obj.responsavel);
@@ -148,7 +152,7 @@ function getTicketMedioReal(){
 // ===== PERÍODO =====
 let periodState={type:'preset',preset:'30d',start:null,end:null};
 function computeRange(){
-  const end=maxDate; const endD=new Date(end+'T12:00:00'); let startD=new Date(endD);
+  const end=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); const endD=new Date(end+'T12:00:00'); let startD=new Date(endD);
   if(periodState.type==='custom'&&periodState.start&&periodState.end)return{start:periodState.start,end:periodState.end};
   switch(periodState.preset){
     case'hoje':return{start:end,end};
@@ -170,6 +174,7 @@ function inPeriod(dateStr){ if(!dateStr)return false; const{start,end}=computeRa
 // garantindo que TODOS os gráficos usem o mesmo dia/hora reais.
 function criadoBRT(r){
   if(!r || !r.criado_em) return null;
+  if(r.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.criado_iso));
   const hUTCraw = r.criado_hora ? parseInt(String(r.criado_hora).split(':')[0], 10) : 12;
   const hUTC = isNaN(hUTCraw) ? 12 : hUTCraw;
   const utc = new Date(r.criado_em + 'T' + String(hUTC).padStart(2,'0') + ':00:00Z');
@@ -177,6 +182,7 @@ function criadoBRT(r){
   return brt.toISOString().slice(0, 10);
 }
 function horaBRT(r){
+  if(r?.criado_iso&&Number.isFinite(Date.parse(r.criado_iso)))return Number(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',hourCycle:'h23'}).format(new Date(r.criado_iso)));
   if(!r || !r.criado_hora) return null;
   const hUTC = parseInt(String(r.criado_hora).split(':')[0], 10);
   if(isNaN(hUTC)) return null;

@@ -6,36 +6,23 @@
 ═══════════════════════════════════════════════════════ */
 
 // ── Normaliza horário incluindo 16h ──────────────────────────────
-function normalizeHorarioSDR(raw) {
-  const v = (raw || '').trim();
-  if (!v || v === 'não selecionada') return null;
-  if (v.includes('11h') || v.startsWith('Opção 1')) return 'Às 11h';
-  if (v.includes('15h') || v.startsWith('Opção 2')) return 'Às 15h';
-  if (v.includes('16h') || v.startsWith('Opção 3')) return 'Às 16h';
-  return 'Outro';
-}
-
 const SDR_SLOTS = ['Às 11h', 'Às 15h', 'Às 16h', 'Outro'];
 const SDR_SHOWUP_META = 50; // meta de show-up e agendamento %
 
 // ── Utilitários locais ───────────────────────────────────────────
-function sdrShowup(r) {
-  return !!nstr(novo(r.id_bitrix), '[Show-up] Data entrada');
-}
-
 // Leads criados no período (todos, antes de filtro segmento)
 function sdrLeadsCriados() {
-  return flowRecords.filter(r => inPeriod(criadoBRT(r)));
+  return agendaRecords().filter(r => inPeriod(criadoBRT(r)));
 }
 
 // Reuniões criadas no período (dt_reuniao_agendada no período)
 function sdrAgendadosHoje() {
-  return flowRecords.filter(r => r.dt_reuniao_agendada && inPeriod(r.dt_reuniao_agendada));
+  return agendaRecords().filter(r => r.dt_reuniao_agendada && inPeriod(r.dt_reuniao_agendada));
 }
 
 // Reuniões marcadas para hoje (dt_apresentacao no período)
 function sdrReunioesMarcadas() {
-  return flowRecords.filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
+  return agendaRecords().filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
 }
 
 // Presença = marcadas no período com show-up preenchido
@@ -96,7 +83,7 @@ function sdrDiasPeriodo() {
     let d = new Date(s);
     while (d <= e) {
       const dow = d.getDay();
-      if (dow !== 0 && dow !== 6) dias.push(d.toISOString().slice(0, 10));
+      dias.push(d.toISOString().slice(0, 10));
       d.setDate(d.getDate() + 1);
     }
     return { dias, granular: 'dia' };
@@ -144,16 +131,17 @@ function sdrLabelPeriodo(key, granular) {
 // Para cada dia/período: métricas de show-up e agendamentos
 function sdrMetricasPorDia(dias) {
   return dias.map(iso => {
-    const marcadas = flowRecords.filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(iso));
+    const marcadas = agendaRecords().filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(iso));
     const presentes = marcadas.filter(r => sdrShowup(r));
-    const agendGer  = flowRecords.filter(r => r.dt_reuniao_agendada && r.dt_reuniao_agendada.startsWith(iso));
-    const leads     = flowRecords.filter(r => criadoBRT(r) === iso);
+    const agendGer  = agendaRecords().filter(r => r.dt_reuniao_agendada && r.dt_reuniao_agendada.startsWith(iso));
+    const leads     = agendaRecords().filter(r => criadoBRT(r) === iso);
     return {
       iso,
       marcadas: marcadas.length,
       presentes: presentes.length,
-      noshow: marcadas.length - presentes.length,
-      pct: marcadas.length > 0 ? +(presentes.length / marcadas.length * 100).toFixed(1) : 0,
+      noshow: marcadas.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length,
+      pending: marcadas.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length,
+      pct: marcadas.some(r=>sdrShowup(r)||agendaEnded(r)) ? +(presentes.length / marcadas.filter(r=>sdrShowup(r)||agendaEnded(r)).length * 100).toFixed(1) : null,
       agendGerados: agendGer.length,
       leadsCriados: leads.length,
     };
@@ -163,16 +151,17 @@ function sdrMetricasPorDia(dias) {
 function sdrMetricasAgrupadas(grupos, chaves) {
   return chaves.map(key => {
     const isos = grupos[key] || [];
-    const marcadas = flowRecords.filter(r => r.dt_apresentacao && isos.includes(r.dt_apresentacao));
+    const marcadas = agendaRecords().filter(r => r.dt_apresentacao && isos.includes(r.dt_apresentacao));
     const presentes = marcadas.filter(r => sdrShowup(r));
-    const agendGer  = flowRecords.filter(r => r.dt_reuniao_agendada && isos.includes(r.dt_reuniao_agendada));
-    const leads     = flowRecords.filter(r => isos.includes(criadoBRT(r)));
+    const agendGer  = agendaRecords().filter(r => r.dt_reuniao_agendada && isos.includes(r.dt_reuniao_agendada));
+    const leads     = agendaRecords().filter(r => isos.includes(criadoBRT(r)));
     return {
       iso: key,
       marcadas: marcadas.length,
       presentes: presentes.length,
-      noshow: marcadas.length - presentes.length,
-      pct: marcadas.length > 0 ? +(presentes.length / marcadas.length * 100).toFixed(1) : 0,
+      noshow: marcadas.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length,
+      pending: marcadas.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length,
+      pct: marcadas.some(r=>sdrShowup(r)||agendaEnded(r)) ? +(presentes.length / marcadas.filter(r=>sdrShowup(r)||agendaEnded(r)).length * 100).toFixed(1) : null,
       agendGerados: agendGer.length,
       leadsCriados: leads.length,
     };
@@ -185,7 +174,7 @@ function sdrMediaSlot(slot, dias7d) {
   const diasSemRef = dias7d.filter(d => d !== ref);
   let tot = 0, su = 0;
   for (const iso of diasSemRef) {
-    const recs = flowRecords.filter(r =>
+    const recs = agendaRecords().filter(r =>
       r.dt_apresentacao && r.dt_apresentacao.startsWith(iso) &&
       normalizeHorarioSDR(r.horario_agenda) === slot
     );
@@ -216,8 +205,6 @@ function renderSDR() {
   renderSDRShowupChart();
   renderSDRAgendChart();
   renderSDRFonteHunter();
-  renderSDRLigacoes();
-  renderSDRTempo();
   renderSDRHeatmap();
   renderSDRSegmentos();
   renderSDRSankey();
@@ -225,235 +212,6 @@ function renderSDR() {
 }
 
 // ── KPIs ────────────────────────────────────────────────────────
-function renderSDRKpis() {
-  const leads    = sdrLeadsCriados();
-  const agend    = sdrAgendadosHoje();
-  const marcadas = sdrReunioesMarcadas();
-  const pres     = sdrPresenca(marcadas);
-  const noshow   = marcadas.length - pres.length;
-  const showPct  = marcadas.length > 0 ? (pres.length / marcadas.length * 100).toFixed(1) : '—';
-
-  // Taxa de agendamento: coorte 7 dias
-  // Leads criados nos últimos 7 dias úteis → quantos viraram agendamento
-  const dias7c = sdrUltimos7d();
-  const { start: startC } = { start: dias7c[0], end: dias7c[dias7c.length-1] };
-  const leadsCoorte  = flowRecords.filter(r => { const c = criadoBRT(r); return c && c >= startC; });
-  const agendCoorte  = leadsCoorte.filter(r => r.dt_reuniao_agendada);
-  const taxaAg = leadsCoorte.length > 0 ? (agendCoorte.length / leadsCoorte.length * 100).toFixed(1) : '—';
-  const taxaAgColor = taxaAg === '—' ? '' : (+taxaAg >= 50 ? 'gr' : +taxaAg >= 40 ? 'or' : 'rd');
-
-  // Médias 7d
-  const dias7 = sdrUltimos7d();
-  const met7  = sdrMetricasPorDia(dias7);
-  const med7leads = +(met7.reduce((s,m)=>s+m.leadsCriados,0)/7).toFixed(0);
-  const med7agend = +(met7.reduce((s,m)=>s+m.agendGerados,0)/7).toFixed(0);
-  const med7marc  = +(met7.reduce((s,m)=>s+m.marcadas,0)/7).toFixed(0);
-  const med7showPct = +(met7.filter(m=>m.marcadas>0).reduce((s,m)=>s+(m.pct/met7.filter(m=>m.marcadas>0).length),0)).toFixed(1);
-
-  const diffLeads = leads.length - med7leads;
-  const diffAgend = agend.length - med7agend;
-  const diffMarc  = marcadas.length - med7marc;
-  const diffShow  = marcadas.length > 0 ? +(+showPct - med7showPct).toFixed(1) : 0;
-
-  function badge(diff) {
-    if (diff > 0) return `<span class="sdr-badge up">+${diff}</span>`;
-    if (diff < 0) return `<span class="sdr-badge dn">${diff}</span>`;
-    return `<span class="sdr-badge fl">±0</span>`;
-  }
-  function badgePp(diff) {
-    if (diff > 0) return `<span class="sdr-badge up">+${diff}pp</span>`;
-    if (diff < 0) return `<span class="sdr-badge dn">${diff}pp</span>`;
-    return `<span class="sdr-badge fl">±0</span>`;
-  }
-
-  const showColor = showPct === '—' ? '' :
-    (+showPct >= 50 ? 'gr' : +showPct >= 42 ? 'or' : 'rd');
-  const barW = showPct === '—' ? 0 : Math.min(+showPct, 100);
-  const barC = showPct === '—' ? '#cbd5e1' :
-    (+showPct >= 50 ? '#059669' : +showPct >= 42 ? '#d97706' : '#dc2626');
-
-  document.getElementById('sdr-kpis').innerHTML = `
-    <div class="sdr-kc nv">
-      <div class="sdr-kl">Leads Criados
-        <span class="sdr-info" data-tip="Leads com Criado no dentro do período. Todos passam pela SDR.">i</span>
-        ${badge(diffLeads)}
-      </div>
-      <div class="sdr-kv nv">${leads.length}</div>
-      <div class="sdr-ks">hoje · média 7d: ${med7leads}</div>
-    </div>
-    <div class="sdr-kc tl">
-      <div class="sdr-kl">Agendados
-        <span class="sdr-info" data-tip="Reuniões CRIADAS hoje (dt_reuniao_agendada = hoje). A reunião pode acontecer em qualquer data futura.">i</span>
-        ${badge(diffAgend)}
-      </div>
-      <div class="sdr-kv tl">${agend.length}</div>
-      <div class="sdr-ks">criados hoje · média 7d: ${med7agend}</div>
-    </div>
-    <div class="sdr-kc nv">
-      <div class="sdr-kl">Reuniões
-        <span class="sdr-info" data-tip="Reuniões cuja Data da Apresentação = hoje. Podem ter sido agendadas em qualquer dia anterior.">i</span>
-        ${badge(diffMarc)}
-      </div>
-      <div class="sdr-kv">${marcadas.length}</div>
-      <div class="sdr-ks">na agenda de hoje · média 7d: ${med7marc}</div>
-    </div>
-    <div class="sdr-kc ${showColor || 'or'}">
-      <div class="sdr-kl">Presença
-        <span class="sdr-info" data-tip="Reuniões de hoje com [Show-up] Data entrada preenchida, dividido pelas reuniões marcadas para hoje.">i</span>
-        ${badgePp(diffShow)}
-      </div>
-      <div class="sdr-kv ${showColor}">${pres.length} <small style="font-size:13px;color:var(--muted);font-weight:500;">/ ${marcadas.length}</small></div>
-      <div class="sdr-ks">${showPct}% show-up · ${noshow} no-show · média 7d: ${med7showPct}%</div>
-      <div class="sdr-prog"><div class="sdr-prog-fill" style="width:${barW}%;background:${barC}"></div></div>
-    </div>
-    <div class="sdr-kc ${taxaAgColor || 'tl'}">
-      <div class="sdr-kl">Taxa Agendamento
-        <span class="sdr-info" data-tip="Coorte 7 dias: dos leads criados nos últimos 7 dias úteis, quantos % já viraram agendamento. Meta ≥ 50%.">i</span>
-      </div>
-      <div class="sdr-kv ${taxaAgColor || 'tl'}">${taxaAg}%</div>
-      <div class="sdr-ks">${agendCoorte.length} de ${leadsCoorte.length} leads (7d úteis) · meta ≥ 50%</div>
-    </div>
-  `;
-}
-
-// ── HORÁRIO GRID ─────────────────────────────────────────────────
-function renderSDRHorario() {
-  const el = document.getElementById('sdr-horario-grid');
-  if (!el) return;
-
-  const agora  = new Date();
-  const hAgora = agora.getHours() * 60 + agora.getMinutes();
-  const ref    = sdrDiaRef();  // dia do filtro atual
-  const ehHoje = ref === agora.toISOString().slice(0, 10);
-
-  // Minutos de corte de cada slot (quando consideramos encerrado)
-  const slotCutoff = {
-    'Às 11h': 12 * 60,
-    'Às 15h': 16 * 60,
-    'Às 16h': 17 * 60,
-    'Outro':  19 * 60,
-  };
-
-  const dias7 = sdrUltimos7d();
-
-  // Reuniões marcadas no dia de referência do filtro
-  const marcadasRef = flowRecords.filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(ref));
-
-  // Totais gerais
-  let totAgend = 0, totPres = 0, totNoshow = 0;
-
-  const colsHTML = SDR_SLOTS.map(slot => {
-    const recs    = marcadasRef.filter(r => normalizeHorarioSDR(r.horario_agenda) === slot);
-    const pres    = recs.filter(r => sdrShowup(r)).length;
-    const noshow  = recs.length - pres;
-    const pct     = recs.length > 0 ? +(pres / recs.length * 100).toFixed(1) : 0;
-    const med7    = sdrMediaSlot(slot, dias7);
-
-    totAgend  += recs.length;
-    totPres   += pres;
-    totNoshow += noshow;
-
-    // Status do slot: só aplica lógica de horário se for hoje, senão é sempre Encerrado
-    let statusClass, statusTxt;
-    if (recs.length === 0) {
-      statusClass = 'sdr-st-pending'; statusTxt = 'Sem agenda';
-    } else if (!ehHoje) {
-      statusClass = 'sdr-st-done'; statusTxt = 'Encerrado';
-    } else {
-      const corte = slotCutoff[slot] || 19 * 60;
-      if (hAgora >= corte) { statusClass = 'sdr-st-done'; statusTxt = 'Encerrado'; }
-      else { statusClass = 'sdr-st-live'; statusTxt = 'Em andamento'; }
-    }
-
-    const cor     = sdrCorPct(pct, SDR_SHOWUP_META);
-    const diff    = recs.length > 0 ? +(pct - med7.pct).toFixed(1) : null;
-    const diffStr = diff !== null ? (diff > 0 ? `+${diff}pp` : `${diff}pp`) : '—';
-    const diffCor = diff !== null ? sdrCorDiff(diff) : '#94a3b8';
-    const barW    = Math.min(pct, 100);
-
-    return `
-      <div class="sdr-hcol">
-        <div class="sdr-hcol-top">
-          <div class="sdr-slot-lbl">${slot}</div>
-          <span class="sdr-status-tag ${statusClass}">${statusTxt}</span>
-        </div>
-        <div class="sdr-big-row">
-          <span class="sdr-agend">${recs.length}</span>
-          <span class="sdr-agend-lbl">agendadas</span>
-        </div>
-        <div class="sdr-pres-row">
-          <span class="sdr-pres">${pres}</span>
-          <span class="sdr-pres-lbl">presentes</span>
-          <span class="sdr-noshow">${noshow > 0 ? noshow + ' no-show' : ''}</span>
-        </div>
-        <div class="sdr-pct-row">
-          <span class="sdr-pct-val" style="color:${recs.length > 0 ? cor : '#94a3b8'}">
-            ${recs.length > 0 ? pct + '%' : '—'}
-          </span>
-          <span class="sdr-pct-lbl">${statusTxt === 'Em andamento' ? 'show-up (parcial)' : 'show-up'}</span>
-        </div>
-        <div class="sdr-hbar">
-          <div class="sdr-hbar-fill" style="width:${barW}%;background:${cor}"></div>
-        </div>
-        <div class="sdr-media-row">
-          <span class="sdr-media-lbl">Média 7d (${slot})</span>
-          <div class="sdr-media-right">
-            ${diff !== null ? `<span class="sdr-media-diff" style="color:${diffCor}">${diffStr}</span>` : ''}
-            <span class="sdr-media-val">${med7.pct}%</span>
-          </div>
-        </div>
-      </div>
-    `;
-  });
-
-  // Coluna Total
-  const totPct   = totAgend > 0 ? +(totPres / totAgend * 100).toFixed(1) : 0;
-  const totCor   = sdrCorPct(totPct, SDR_SHOWUP_META);
-  const med7tot  = +(sdrUltimos7d().slice(0,-1).reduce((s, iso) => {
-    const recs = flowRecords.filter(r => r.dt_apresentacao && r.dt_apresentacao.startsWith(iso));
-    const pr   = recs.filter(r => sdrShowup(r)).length;
-    return s + (recs.length > 0 ? pr / recs.length * 100 : 0);
-  }, 0) / 6).toFixed(1);
-  const totDiff  = totAgend > 0 ? +(totPct - +med7tot).toFixed(1) : null;
-  const totDiffCor = totDiff !== null ? sdrCorDiff(totDiff) : '#94a3b8';
-  const totDiffStr = totDiff !== null ? (totDiff > 0 ? `+${totDiff}pp` : `${totDiff}pp`) : '—';
-
-  el.innerHTML = colsHTML.join('') + `
-    <div class="sdr-hcol" style="background:var(--bg)">
-      <div class="sdr-hcol-top">
-        <div class="sdr-slot-lbl" style="color:var(--tx)">Total</div>
-        <span class="sdr-status-tag sdr-st-live">Geral</span>
-      </div>
-      <div class="sdr-big-row">
-        <span class="sdr-agend" style="color:var(--navy)">${totAgend}</span>
-        <span class="sdr-agend-lbl">agendadas</span>
-      </div>
-      <div class="sdr-pres-row">
-        <span class="sdr-pres">${totPres}</span>
-        <span class="sdr-pres-lbl">presentes</span>
-        <span class="sdr-noshow">${totNoshow > 0 ? totNoshow + ' no-show' : ''}</span>
-      </div>
-      <div class="sdr-pct-row">
-        <span class="sdr-pct-val" style="color:${totAgend > 0 ? totCor : '#94a3b8'}">
-          ${totAgend > 0 ? totPct + '%' : '—'}
-        </span>
-        <span class="sdr-pct-lbl">show-up geral</span>
-      </div>
-      <div class="sdr-hbar">
-        <div class="sdr-hbar-fill" style="width:${Math.min(totPct,100)}%;background:${totCor}"></div>
-      </div>
-      <div class="sdr-media-row">
-        <span class="sdr-media-lbl">Média 7d geral</span>
-        <div class="sdr-media-right">
-          ${totDiff !== null ? `<span class="sdr-media-diff" style="color:${totDiffCor}">${totDiffStr}</span>` : ''}
-          <span class="sdr-media-val">${med7tot}%</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-// ── GRÁFICO: SHOW-UP PERÍODO COM NÚMEROS ─────────────────────────
 function renderSDRShowupChart() {
   const chart = ec('sdr-ch-showup');
   if (!chart) return;
@@ -466,8 +224,8 @@ function renderSDRShowupChart() {
   const pctA   = mets.map(m => m.pct);
   const ref    = sdrDiaRef();
 
-  const med7pct = mets.filter(m=>m.marcadas>0).length > 0
-    ? +(mets.filter(m=>m.marcadas>0).reduce((s,m)=>s+m.pct,0) / mets.filter(m=>m.marcadas>0).length).toFixed(1)
+  const med7pct = mets.filter(m=>m.pct!==null).length > 0
+    ? +(mets.filter(m=>m.pct!==null).reduce((s,m)=>s+m.pct,0) / mets.filter(m=>m.pct!==null).length).toFixed(1)
     : 0;
 
   // DataZoom: mostra janela de ~14 pontos, com scroll se tiver mais
@@ -487,8 +245,8 @@ function renderSDRShowupChart() {
         return `<b>${p[0].axisValue}</b><br/>` +
           `Agendadas: <b>${marcA[idx]}</b><br/>` +
           `Presentes: <b>${presA[idx]}</b><br/>` +
-          `No-show: <b>${marcA[idx] - presA[idx]}</b><br/>` +
-          `Show-up: <b>${pctA[idx]}%</b>`;
+          `Sem presença registrada após horário: <b>${mets[idx].noshow}</b><br/>Aguardando horário: <b>${mets[idx].pending}</b><br/>` +
+          `Show-up: <b>${pctA[idx]===null?'Aguardando apuração':pctA[idx]+'%'}</b>`;
       }
     },
     legend: {
@@ -639,9 +397,9 @@ function renderSDRFonteHunter() {
   const periodoLabel = `${fmtD(pStart)} – ${fmtD(pEnd)}`;
 
   // Fonte: fixo 7 dias úteis (amostra representativa por fonte)
-  const recs7d  = flowRecords.filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
+  const recs7d  = agendaRecords().filter(r => r.dt_apresentacao && dias7.some(d => r.dt_apresentacao.startsWith(d)));
   // Hunter: respeita o período global selecionado
-  const recsHunter = flowRecords.filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
+  const recsHunter = agendaRecords().filter(r => r.dt_apresentacao && inPeriod(r.dt_apresentacao));
 
   const fonteMap = {};
   const hunterMap = {};
@@ -742,7 +500,7 @@ function renderSDRBacklog() {
 
   // 1. Leads sem primeiro contato — criados nos últimos 30 dias, antes de hoje,
   //    sem agendamento e sem msg wpp hunter
-  const semContato = flowRecords.filter(r => {
+  const semContato = agendaRecords().filter(r => {
     const c = criadoBRT(r);
     if (!c || c >= hoje) return false;
     if (c < limite30) return false;
@@ -750,7 +508,7 @@ function renderSDRBacklog() {
   });
 
   // 2. No-shows de hoje (reunião foi hoje, sem show-up)
-  const noShowsHoje = flowRecords.filter(r => {
+  const noShowsHoje = agendaRecords().filter(r => {
     if (!r.dt_apresentacao || !r.dt_apresentacao.startsWith(hoje)) return false;
     const agora = new Date();
     const hAgora = agora.getHours();
@@ -770,7 +528,7 @@ function renderSDRBacklog() {
   anteontem.setDate(anteontem.getDate() - 2);
   const anteontemStr = anteontem.toISOString().slice(0, 10);
 
-  const noShowsRecentes = flowRecords.filter(r => {
+  const noShowsRecentes = agendaRecords().filter(r => {
     if (!r.dt_apresentacao) return false;
     if (!r.dt_apresentacao.startsWith(ontemStr) && !r.dt_apresentacao.startsWith(anteontemStr)) return false;
     return !sdrShowup(r);
@@ -779,7 +537,7 @@ function renderSDRBacklog() {
   // 4. Reuniões marcadas para hoje ainda aguardando (horário não encerrado)
   const agora = new Date();
   const hAgora = agora.getHours();
-  const aguardando = flowRecords.filter(r => {
+  const aguardando = agendaRecords().filter(r => {
     if (!r.dt_apresentacao || !r.dt_apresentacao.startsWith(hoje)) return false;
     if (sdrShowup(r)) return false;
     const slot = normalizeHorarioSDR(r.horario_agenda);
@@ -850,177 +608,6 @@ function sdrResolveCall(raw) {
 }
 
 // ── LIGAÇÕES SDR ─────────────────────────────────────────────────
-function renderSDRLigacoes() {
-  const kpisEl = document.getElementById('sdr-ligacoes-kpis');
-  const chart  = ec('sdr-ch-ligacoes');
-  if (!kpisEl || !chart) return;
-
-  const recs = flowRecords.filter(r => inPeriod(criadoBRT(r)) && r.resultado_ligacao_sdr);
-  const total = recs.length;
-
-  const counts = {};
-  Object.values(SDR_CALL_MAP).forEach(v => { counts[v] = 0; });
-  recs.forEach(r => {
-    const v = sdrResolveCall(r.resultado_ligacao_sdr);
-    if (v && counts[v] !== undefined) counts[v]++;
-  });
-
-  const sucesso = (counts['Atendeu — agendou'] || 0);
-  const atendeu = sucesso + (counts['Atendeu — não agendou'] || 0);
-  const taxaSucesso = total > 0 ? (sucesso / total * 100).toFixed(1) : '—';
-  const taxaAtendeu = total > 0 ? (atendeu / total * 100).toFixed(1) : '—';
-
-  // KPIs inline
-  const kpiData = [
-    { lbl: 'Total ligações', val: total, sub: 'no período', color: 'var(--navy)' },
-    { lbl: 'Atenderam', val: atendeu, sub: taxaAtendeu !== '—' ? taxaAtendeu + '%' : '—', color: 'var(--teal)' },
-    { lbl: 'Agendou (sucesso)', val: sucesso, sub: taxaSucesso !== '—' ? taxaSucesso + '%' : '—', color: 'var(--gr)' },
-    { lbl: 'Não atendeu', val: counts['Não atendeu'] + counts['Caixa postal'], sub: 'sem resposta + cx postal', color: 'var(--or)' },
-    { lbl: 'Número errado', val: counts['Número errado'], sub: 'lead inválido', color: 'var(--rd)' },
-  ];
-
-  kpisEl.innerHTML = kpiData.map((k, i) => `
-    <div style="padding:12px 16px;border-right:1px solid var(--border2);${i===4?'border-right:none':''}">
-      <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px">${k.lbl}</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:${k.color};line-height:1">${k.val}</div>
-      <div style="font-size:10.5px;color:var(--muted);margin-top:3px">${k.sub}</div>
-    </div>`).join('');
-
-  if (total === 0) {
-    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Nenhuma ligação registrada no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
-    return;
-  }
-
-  const labels = Object.keys(counts);
-  const vals   = labels.map(l => counts[l]);
-  const colors = labels.map(l => SDR_CALL_COLORS[l] || '#94a3b8');
-
-  chart.setOption({
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 }, backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1 },
-    grid: { left: 140, right: 20, top: 12, bottom: 12 },
-    xAxis: { type: 'value', axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-    yAxis: { type: 'category', data: labels, axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 11, color: '#4a5468', fontWeight: 500 }, axisLine: { show: false }, axisTick: { show: false } },
-    series: [{
-      type: 'bar', barMaxWidth: 18, itemStyle: { borderRadius: [0,3,3,0] },
-      data: vals.map((v, i) => ({ value: v, itemStyle: { color: colors[i] } })),
-      label: { show: true, position: 'right', formatter: p => {
-        const pct = total > 0 ? (p.value / total * 100).toFixed(1) : 0;
-        return p.value + '  ' + pct + '%';
-      }, fontFamily: 'JetBrains Mono', fontSize: 11, color: '#1e293b', fontWeight: 600 }
-    }]
-  }, true);
-}
-
-// ── TEMPO DE AÇÃO DA SDR ─────────────────────────────────────────
-function renderSDRTempo() {
-  const chart = ec('sdr-ch-tempo');
-  if (!chart) return;
-
-  // Primeiro contato real = MIN(dt_msg_wpp_hunter, dt_reuniao_agendada)
-  // Como os campos são só data (sem hora), medimos em DIAS corridos
-  const recs = flowRecords.filter(r =>
-    inPeriod(criadoBRT(r)) &&
-    (r.dt_msg_wpp_hunter || r.dt_reuniao_agendada || r.dt_interacao)
-  );
-
-  if (recs.length === 0) {
-    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados no período', fill: '#94a3b8', fontSize: 12, fontFamily: 'Plus Jakarta Sans' } }] }, true);
-    return;
-  }
-
-  // Calcula diferença em HORAS entre criação e primeiro contato.
-  // criado_hora (já em UTC-3) refina o ponto de partida.
-  // Campos de contato são date-only → precisão ±12h por dia de diferença.
-  const diffs = recs.map(r => {
-    const horaCriacao = r.criado_hora ? (() => {
-      const h = parseInt(r.criado_hora.split(':')[0], 10);
-      return ((h - 3) + 24) % 24; // UTC → UTC-3
-    })() : 12; // fallback meio-dia
-    const criado = new Date(r.criado_em + 'T00:00:00');
-    criado.setHours(horaCriacao);
-    const datas = [r.dt_msg_wpp_hunter, r.dt_reuniao_agendada, r.dt_interacao]
-      .filter(Boolean)
-      .map(d => new Date(d + 'T12:00:00')); // contato sem hora → meio-dia
-    if (!datas.length) return null;
-    const primeiro = new Date(Math.min(...datas));
-    const horas = Math.round((primeiro - criado) / 3600000);
-    return horas >= 0 ? horas : null;
-  }).filter(h => h !== null && h <= 240); // exclui outliers >10 dias
-
-  if (diffs.length === 0) {
-    chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem dados válidos', fill: '#94a3b8', fontSize: 12 } }] }, true);
-    return;
-  }
-
-  const avg  = Math.round(diffs.reduce((s, d) => s + d, 0) / diffs.length);
-  const sorted = diffs.slice().sort((a, b) => a - b);
-  const med  = sorted[Math.floor(sorted.length / 2)];
-  const fmtH = h => h < 24 ? `${h}h` : `${(h / 24).toFixed(1).replace('.', ',')}d`;
-
-  // Buckets em HORAS: < 24h · 24–48h · 48–72h · 3–5 dias · 5–10 dias · 10+ dias
-  const buckets = ['< 24h', '24–48h', '48–72h', '3–5 dias', '5–10 dias', '10+ dias'];
-  const limits  = [24, 48, 72, 120, 240, Infinity];
-  const bCount  = new Array(6).fill(0);
-  diffs.forEach(h => {
-    for (let i = 0; i < limits.length; i++) {
-      if (h < limits[i]) { bCount[i]++; break; }
-    }
-  });
-
-  const total = diffs.length;
-  const ate24pct = total > 0 ? (bCount[0] / total * 100).toFixed(0) : 0;
-
-  chart.setOption({
-    tooltip: {
-      trigger: 'axis', axisPointer: { type: 'shadow' },
-      textStyle: { fontFamily: 'Plus Jakarta Sans', fontSize: 12 },
-      backgroundColor: '#fff', borderColor: '#e2e8f0', borderWidth: 1,
-      formatter: p => {
-        const pct = total > 0 ? (p[0].value / total * 100).toFixed(1) : 0;
-        return `<b>${p[0].axisValue}</b><br/>Leads: <b>${p[0].value}</b> (${pct}%)`;
-      }
-    },
-    grid: { left: 50, right: 20, top: 44, bottom: 24 },
-    graphic: [
-      { type: 'text', left: 14, top: 10, style: {
-        text: `Média: ${fmtH(avg)} · Mediana: ${fmtH(med)} · ${ate24pct}% contatados em < 24h`,
-        fill: '#003462', fontSize: 11, fontWeight: 700, fontFamily: 'Plus Jakarta Sans'
-      }},
-      { type: 'text', right: 14, top: 10, style: {
-        text: `${total} leads com 1º contato registrado`,
-        fill: '#64748b', fontSize: 11, fontFamily: 'Plus Jakarta Sans'
-      }},
-    ],
-    xAxis: {
-      type: 'category', data: buckets,
-      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10.5, color: '#94a3b8' },
-      axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false }
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { fontFamily: 'Plus Jakarta Sans', fontSize: 10, color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#f1f5f9' } },
-      axisLine: { show: false }, axisTick: { show: false }
-    },
-    series: [{
-      type: 'bar', barMaxWidth: 40,
-      data: bCount.map((v, i) => ({
-        value: v,
-        itemStyle: {
-          color: i === 0 ? '#059669' : i <= 1 ? '#00a0a3' : i <= 2 ? '#d97706' : '#dc2626',
-          borderRadius: [3,3,0,0]
-        }
-      })),
-      label: {
-        show: true, position: 'top',
-        formatter: p => p.value > 0 ? p.value : '',
-        fontFamily: 'JetBrains Mono', fontSize: 10, fontWeight: 700, color: '#1e293b'
-      }
-    }]
-  }, true);
-}
-
-// ── HEATMAP HORA × DIA DA SEMANA ─────────────────────────────────
 function renderSDRHeatmap() {
   const chart = ec('sdr-ch-heatmap');
   if (!chart) return;
@@ -1031,7 +618,7 @@ function renderSDRHeatmap() {
 
   // Usa os helpers globais do core.js (mesma lógica do KPI Leads Criados,
   // do gráfico Agendamentos e de todos os outros pontos do dashboard)
-  const recs = flowRecords.filter(r => criadoBRT(r));
+  const recs = agendaRecords().filter(r => criadoBRT(r));
 
   // Verifica se há hora disponível em ALGUM registro (para decidir o modo de exibição)
   const temHora = recs.some(r => r.criado_hora);
@@ -1152,7 +739,7 @@ function renderSDRSegmentos() {
     return 'Outros';
   }
 
-  const recs = flowRecords.filter(r => inPeriod(criadoBRT(r)));
+  const recs = agendaRecords().filter(r => inPeriod(criadoBRT(r)));
 
   // Agrupa por segmento
   const segData = {};
@@ -1265,7 +852,7 @@ function renderSDRSankey() {
   const chart = ec('sdr-ch-sankey');
   if (!chart) return;
 
-  const base = flowRecords.filter(r => inPeriod(criadoBRT(r)));
+  const base = agendaRecords().filter(r => inPeriod(criadoBRT(r)));
 
   if (base.length === 0) {
     chart.setOption({ graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: 'Sem leads no período', fill: GY, fontSize: 12, fontFamily: F } }] }, true);
@@ -1399,4 +986,59 @@ function renderSDRSankey() {
       lineStyle: { color: 'gradient', opacity: 0.25, curveness: 0.5 }
     }]
   }, true);
+}
+
+function agendaRecords(){return flowRecords.filter(byHunter);}
+function agendaClock(now=new Date()){
+ const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).map(x=>[x.type,x.value]));
+ return {date:`${p.year}-${p.month}-${p.day}`,minute:Number(p.hour)*60+Number(p.minute)};
+}
+function agendaEnded(r,now=new Date()){
+ if(!r.dt_apresentacao)return false;
+ const clock=agendaClock(now);if(r.dt_apresentacao<clock.date)return true;if(r.dt_apresentacao>clock.date)return false;
+ const cutoff={'Às 11h':720,'Às 15h':960,'Às 16h':1020,'Outro':1140};
+ return clock.minute >= cutoff[normalizeHorarioSDR(r.horario_agenda)||'Outro'];
+}
+function normalizeHorarioSDR(raw){
+ const v=String(raw||'').trim();const h=v.match(/\b(\d{1,2})h\b/i);
+ if(h)return ({11:'Às 11h',15:'Às 15h',16:'Às 16h'})[Number(h[1])]||'Outro';
+ return 'Outro';
+}
+function sdrShowup(r){
+ const entry=parseDateBR(nstr(novo(r.id_bitrix),'[Show-up] Data entrada'));
+ return !!entry&&entry===r.dt_apresentacao;
+}
+function renderSDRKpis(){
+ const leads=sdrLeadsCriados(),agend=sdrAgendadosHoje(),marked=sdrReunioesMarcadas();
+ const present=marked.filter(sdrShowup),ended=marked.filter(r=>sdrShowup(r)||agendaEnded(r));
+ const pending=marked.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length;
+ const unrecorded=marked.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length;
+ const rate=ended.length?(100*present.length/ended.length).toFixed(1)+'%':'—';
+ const days=sdrUltimos7d(),end=computeRange().end;
+ const cohort=agendaRecords().filter(r=>{const c=criadoBRT(r);return c&&c>=days[0]&&c<=end});
+ const booked=cohort.filter(r=>r.dt_reuniao_agendada&&r.dt_reuniao_agendada<=end);
+ const bookingRate=cohort.length?(100*booked.length/cohort.length).toFixed(1)+'%':'—';
+ const cards=[
+ ['Leads criados',leads.length,'Data de criação no período','nv'],
+ ['Agendamentos gerados',agend.length,'Data do registro do agendamento','tl'],
+ ['Reuniões previstas',marked.length,'Data da reunião no período · inclui remarcações','nv'],
+ ['Presença',present.length+' / '+marked.length,`${rate} nos horários apuráveis · ${pending} aguardando horário · ${unrecorded} sem presença registrada`,'tl'],
+ ['Taxa de agendamento',bookingRate,`${booked.length} de ${cohort.length} leads criados nos últimos 7 dias úteis do filtro`,'tl']
+ ];
+ document.getElementById('sdr-kpis').innerHTML=cards.map(([label,value,description,color])=>`<div class="sdr-kc ${color}"><div class="sdr-kl">${label}</div><div class="sdr-kv ${color}">${value}</div><div class="sdr-ks">${description}</div></div>`).join('');
+}
+function renderSDRHorario(){
+ const el=document.getElementById('sdr-horario-grid');if(!el)return;
+ const ref=sdrDiaRef(),clock=agendaClock(),marked=agendaRecords().filter(r=>r.dt_apresentacao===ref);
+ function column(slot,rows){
+  const present=rows.filter(sdrShowup).length,closed=rows.filter(r=>sdrShowup(r)||agendaEnded(r)).length;
+  const pending=rows.filter(r=>!sdrShowup(r)&&!agendaEnded(r)).length;
+  const unrecorded=rows.filter(r=>!sdrShowup(r)&&agendaEnded(r)).length;
+  const rate=closed?100*present/closed:null;
+  const start={'Às 11h':660,'Às 15h':900,'Às 16h':960,'Outro':0};
+  const status=!rows.length?'Sem agenda':ref>clock.date||(ref===clock.date&&clock.minute<(start[slot]||0))?'Aguardando horário':pending?'Em andamento':'Encerrado';
+  return `<div class="sdr-hcol"><div class="sdr-hcol-top"><div class="sdr-slot-lbl">${slot}</div><span class="sdr-status-tag ${pending?'sdr-st-pending':'sdr-st-done'}">${status}</span></div><div class="sdr-big-row"><span class="sdr-agend">${rows.length}</span><span class="sdr-agend-lbl">agendadas</span></div><div class="sdr-pres-row"><span class="sdr-pres">${present}</span><span class="sdr-pres-lbl">presentes</span></div><div class="sdr-pct-row"><span class="sdr-pct-val">${rate===null?'—':rate.toFixed(1)+'%'}</span><span class="sdr-pct-lbl">presença apurável</span></div><div class="sdr-hbar"><div class="sdr-hbar-fill" style="width:${rate||0}%;background:var(--teal)"></div></div><div class="sdr-media-row"><span>${pending} aguardando horário<br>${unrecorded} sem presença registrada</span></div></div>`;
+ }
+ el.innerHTML=SDR_SLOTS.map(slot=>column(slot,marked.filter(r=>normalizeHorarioSDR(r.horario_agenda)===slot))).join('')+column('Total',marked);
+ const title=el.parentElement.querySelector('.ps');if(title)title.textContent='Dia de referência: '+ref.split('-').reverse().join('/')+'. Ausência de presença antes do encerramento do horário não é no-show.';
 }

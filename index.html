@@ -26,6 +26,7 @@
   <div class="hsel"><span>HUNTER</span><select id="hunter-sel"><option value="">Todos</option><option>Ana Melo</option><option>Elizabete Soares</option><option>Jade Sena</option><option>Jose Rodrigo Moreira</option><option>Vinicius Pedro</option><option>Patrícia Rezende</option></select></div>
   <div class="hf"></div><div class="upd" id="upd">Carregando…</div>
 </div>
+<div id="sync-status" role="status" aria-live="polite"></div>
 <div class="pane on" id="pane-com"><div class="panel"><div class="pt">Funil comercial</div><div class="ps">Mesmos critérios de Agendas. Cada etapa considera a data do seu evento no período selecionado.</div><div id="commercial-kpis" class="krow4"></div><div id="commercial-funnel"></div><div id="commercial-returns"></div><div id="com-tags" class="bot-tags"></div></div></div>
 <div class="pane" id="pane-bot"><div id="bot-kpis" class="krow"></div><div id="bot-insight" class="bot-note"></div><div class="g2"><div class="panel"><div class="pt">Onde a conversa perde avanço?</div><div class="ps">Leads criados no período. Etapas com evidência no histórico, sem inferir respostas.</div><div id="bot-funnel"></div></div><div class="panel"><div class="pt">Agendamentos por dia</div><div class="ps">Data em que o agendamento foi registrado pelo bot; inclui leads criados antes do período.</div><div id="bot-daily"></div></div></div><div class="panel"><div class="pt">As retomadas estão trazendo respostas?</div><div class="ps">Resposta posterior ao envio e anterior à próxima tentativa. Associação temporal, não comprovação de causa.</div><div id="bot-recovery"></div></div></div><div class="pane" id="pane-acomp">
 
@@ -114,7 +115,7 @@
     <div id="ch-mkt-tmpl-ab" style="height:240px"></div>
   </div>
   <div class="panel">
-    <div class="pt"><div class="ptb" style="background:var(--navy)"></div>Templates — CA S2 (Não respondeu SDR)</div>
+    <div class="pt"><div class="ptb" style="background:var(--navy)"></div>Templates — CA S2 (Não respondeu ao contato)</div>
     <div class="ps">Campo [CA] Template Enviado (UF_CRM_1784135192) · retorno = campo "Respondeu" = Sim (11912)</div>
     <div id="ch-mkt-tmpl-ca" style="height:240px"></div>
   </div>
@@ -169,12 +170,12 @@
   <!-- Gráficos: show-up 7d + agendamentos 7d -->
   <div class="sdr-g2">
     <div class="panel">
-      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up diário · últimos 7d</div>
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up · período selecionado</div>
       <div class="ps">% de presença, agendadas e presentes por dia · linha = taxa show-up</div>
       <div id="sdr-ch-showup" style="height:230px"></div>
     </div>
     <div class="panel">
-      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Agendamentos gerados · últimos 7d</div>
+      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Agendamentos gerados · período selecionado</div>
       <div class="ps">Reuniões criadas por dia vs leads recebidos · rótulos mostram volume exato</div>
       <div id="sdr-ch-agend" style="height:230px"></div>
     </div>
@@ -189,33 +190,16 @@
     </div>
     <div class="panel">
       <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Show-up · por hunter</div>
-      <div class="ps">Últimos 7 dias úteis · reuniões do hunter agendadas pela SDR</div>
+      <div class="ps">Últimos 7 dias úteis · reuniões por hunter</div>
       <div id="sdr-ch-hunter" style="height:200px"></div>
     </div>
   </div>
 
-  <!-- Ligações SDR -->
-  <div class="panel" style="margin-bottom:11px;padding:0;overflow:hidden">
-    <div style="padding:10px 15px;border-bottom:1px solid var(--border)">
-      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Ligações SDR · resultado</div>
-      <div class="ps">Resultado das ligações feitas pela SDR no período · campo "Resultado das ligações (SDR)"</div>
-    </div>
-    <div id="sdr-ligacoes-kpis" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0;border-bottom:1px solid var(--border)"></div>
-    <div id="sdr-ch-ligacoes" style="height:180px"></div>
-  </div>
-
-  <!-- Tempo de ação + Heatmap -->
-  <div class="sdr-g2">
-    <div class="panel">
-      <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Tempo de ação da SDR</div>
-      <div class="ps">Dias corridos entre criação do lead e primeiro contato real (Msg WPP Hunter ou Reunião Agendada, o que vier primeiro)</div>
-      <div id="sdr-ch-tempo" style="height:200px"></div>
-    </div>
-    <div class="panel">
+  <!-- Horário de entrada preservado -->
+  <div class="panel">
       <div class="pt"><div class="ptb" style="background:var(--teal)"></div>Horário de entrada dos leads · semana</div>
       <div class="ps">Volume por faixa de 2h e dia da semana · cor mais intensa = mais leads no período</div>
       <div id="sdr-ch-heatmap" style="height:260px"></div>
-    </div>
   </div>
 
   <!-- Segmentos no pipeline -->
@@ -243,4 +227,5 @@
 <script src="/js/acompanhamento.js"></script>
 <script src="/js/marketing.js"></script>
 <script src="/js/sdr.js"></script><script src="/js/refinamentos.js"></script><script src="/js/template-catalog.js"></script><script src="/js/clareza.js"></script>
+<script src="/js/sync-health.js"></script>
 </body></html>

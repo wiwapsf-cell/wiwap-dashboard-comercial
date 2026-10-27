@@ -6,3 +6,40 @@ function phaseTable(rows,types){return '<table class="dt featured"><thead><tr><t
 const previousTemplatePanel=templatePanel;templatePanel=function(rows,pattern){if(pattern.source.includes('cadastro'))return '';return previousTemplatePanel(rows,pattern).replaceAll('Abertura ou nova tentativa para cadastro sem conversa','Tentativa comercial da Retomada Ativa').replace(/<p class="ps">Identificação registrada[^<]*<\/p>/,'').replace(/<b>(comercial[^<]*)<\/b>/g,(match,label)=>match+' <span tabindex="0" class="help-tip" title="'+botEscape(helpFor('commercial',label))+'">ⓘ</span>'+modelPreview(label,'commercial'));};
 const renderBotBeforeClarity=renderBot;renderBot=function(){renderBotBeforeClarity();const all=phaseRows(periodRows().map(journey));if(!Object.values(novoMap).some(n=>Object.prototype.hasOwnProperty.call(n,'[BOT] Jornada do Bot')))return;document.getElementById('bot-recovery').innerHTML='<h3>Retomadas de conversa · Bot</h3><p class="ps">Conversa já iniciada, seguida de silêncio. Tentativas de 5 minutos, 30 minutos e 4 horas.</p>'+phaseTable(all,[['5','Retomada de conversa · 5 minutos'],['30','Retomada de conversa · 30 minutos'],['4h','Retomada de conversa · 4 horas']])+'<div class="active-separator"><h3>Disparos ativos · cadastro sem conversa</h3><p class="ps">Primeiro contato iniciado pela Wiwap e segunda tentativa caso não haja resposta. O antigo card “67” era o volume de aberturas ativas aceitas no período, incluindo cadastros antigos.</p>'+phaseTable(all,[['cadastro1','Abertura ativa · cadastro sem conversa'],['cadastro2','Segunda tentativa · cadastro sem conversa (4h)']])+'</div><p class="ps">Os dois nomes históricos da segunda tentativa são agrupados. Registros do mesmo lead e fase com menos de 60 segundos são tratados como um evento; o histórico não fornece o ID da mensagem. Resposta e agenda são posteriores ao envio, antes da próxima tentativa.</p>';
  const funnel=document.getElementById('bot-funnel'),slices=[...funnel.querySelectorAll('.funnel-slice')].map(e=>({label:e.querySelector('span').textContent,n:Number(e.querySelector('strong').textContent)}));if(slices.length){document.getElementById('bot-daily').insertAdjacentHTML('beforeend','<section class="bottleneck-box"><h3>Onde concentrar a atenção</h3>'+slices.slice(1).map((x,i)=>`<div class="drop-row"><span>${botEscape(slices[i].label)} → ${botEscape(x.label)}</span><b>${slices[i].n-x.n}</b><small>sem registro do próximo avanço · ${slices[i].n?((slices[i].n-x.n)/slices[i].n*100).toFixed(1):0}%</small></div>`).join('')+'<p class="ps">Perdas de avanço observadas; podem incluir encerramentos, atendimento humano ou histórico incompleto.</p></section>');}};
+
+
+// Cobertura da base do Bot: ausência de ID não é resultado zero.
+(function protectBotCoverage(){
+  const previousRenderBotWithCoverage = renderBot;
+  function coverage(){
+    const rows=flowRecords.filter(byHunter).filter(r=>inPeriod(criadoBRT(r)));
+    const missing=rows.filter(r=>!Object.prototype.hasOwnProperty.call(novoMap,String(r.id_bitrix||'')));
+    const parsed=rows.filter(r=>journey(r).events.length>0);
+    return {total:rows.length,missing:missing.length,parsed:parsed.length};
+  }
+  renderBot=function(){
+    previousRenderBotWithCoverage();
+    const health=coverage(),insight=document.getElementById('bot-insight');
+    const periodLabels=['Enviaram mensagem ao Bot','Receberam abertura ativa','Escolheram horário / agendaram','Confirmaram a agenda','Encaminhamento humano'];
+    if(health.total && (health.missing>0 || health.parsed===0)){
+      // A base não permite fechar o total dos indicadores desta coorte.
+      const label=health.missing>0?'Aguardando sincronização completa':'Histórico insuficiente para apurar';
+      document.getElementById('bot-kpis').innerHTML=metricCards([
+        ['Leads criados',health.total,'Base principal · período selecionado'],
+        ...periodLabels.map(name=>[name,'—',label]),
+      ]);
+      if(insight)insight.innerHTML='<b>'+(health.missing>0?'Dados do Bot incompletos nesta seleção':'Sem histórico datado suficiente')+'</b><br>'+
+        (health.missing>0?health.missing+' de '+health.total+' leads criados ainda não possuem linha correspondente na base do Bot. ':'')+
+        health.parsed+' de '+health.total+' têm eventos datados reconhecidos. Os indicadores desta coorte estão indisponíveis até haver cobertura suficiente; ausência de registro não comprova ausência de atendimento.';
+      document.getElementById('bot-funnel').innerHTML='<p class="ps">Funil indisponível: faltam dados para avaliar o avanço dos leads desta seleção.</p>';
+      // Estes blocos contam eventos no período em toda a base, incluindo leads antigos.
+      for(const id of ['bot-daily','bot-recovery']){
+        const el=document.getElementById(id);
+        if(el)el.insertAdjacentHTML('afterbegin','<p class="ps" data-bot-health-notice="true"><b>Base parcial:</b> os números abaixo representam apenas eventos já sincronizados. A ausência de eventos não confirma total zero no período.</p>');
+      }
+    }else if(health.total===0){
+      if(insight)insight.innerHTML='<b>Nenhum lead criado nesta seleção.</b><br>Os gráficos por data de evento podem incluir leads criados em outros períodos.';
+      document.getElementById('bot-funnel').innerHTML='<p class="ps">Sem leads criados no período para montar o funil.</p>';
+    }
+  };
+})();
